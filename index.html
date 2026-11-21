@@ -15,6 +15,7 @@
     <button data-tab="feedback" class="on">店铺反馈</button>
     <button data-tab="requests">食材リクエスト</button>
     <button data-tab="bowls">碗数据</button>
+    <button data-tab="missing">店にない食材</button>
     <button data-tab="shops">店铺清单</button>
   </nav>
   <div id="session" hidden><span id="who"></span> <button id="reload">刷新</button> <button id="signout">退出</button></div>
@@ -58,6 +59,13 @@
     <div id="bowls-chains"></div>
     <h3>误差分布（实际 ÷ 估算）</h3><div id="bowls-histogram" class="chart"></div>
     <h3>按店（碗数最多的 20 家）</h3><div id="bowls-places"></div>
+  </section>
+
+  <section id="missing" class="tab" hidden>
+    <h2>店にない食材</h2>
+    <p class="hint">用户在店内模式点「ない」时的匿名上报（只有 ID 和周）。同一连锁里多家店、多人都报的食材，才考虑从那家连锁的おまかせ里去掉。</p>
+    <div id="missing-summary" class="cards"></div>
+    <h3>按连锁和食材</h3><div id="missing-list"></div>
   </section>
 
   <section id="shops" class="tab" hidden>

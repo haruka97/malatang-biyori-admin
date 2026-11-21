@@ -14,7 +14,7 @@ const TOPICS = {
 const REVIEWS = { new: "未处理", checked: "已核实", rejected: "不采用" };
 const CHAINS = { yangguofu: "楊国福", qibao: "七宝", lixiaoqi: "李暁七", lahongbang: "ラホンバン", custom: "自定义店铺" };
 
-const state = { session: null, feedback: [], requests: [], bowls: [], shops: [], dataset: null };
+const state = { session: null, feedback: [], requests: [], bowls: [], missing: [], shops: [], dataset: null };
 
 // ---- Small DOM helpers (text only, never innerHTML) ----
 
@@ -120,14 +120,15 @@ async function load() {
   try {
     if (DEMO) Object.assign(state, demoData());
     else {
-      const [feedback, requests, bowls, shops, dataset] = await Promise.all([
+      const [feedback, requests, bowls, missing, shops, dataset] = await Promise.all([
         all("shop_feedback", "id,shop_id,topic,message,source_url,app_version,iso_week,review", "iso_week.desc,id"),
         all("ingredient_requests", "upload_id,name,category,unit,grams_per_unit,app_version,iso_week,review", "iso_week.desc,upload_id"),
         all("bowl_submissions", "upload_id,chain_id,estimated_grams_raw,actual_grams,actual_yen,iso_week,place_id,app_version", "iso_week.desc,upload_id"),
+        all("missing_ingredients", "upload_id,ingredient_id,chain_id,place_id,iso_week", "iso_week.desc,upload_id"),
         all("shops", "id,name,chain_id,uses_chain_rule,prefecture,city,address,apple_place_id,status,verified_on,published", "id"),
         api("shop_dataset?select=version,checked_on&limit=1"),
       ]);
-      Object.assign(state, { feedback, requests, bowls, shops, dataset: dataset[0] || null });
+      Object.assign(state, { feedback, requests, bowls, missing, shops, dataset: dataset[0] || null });
     }
     if (!DEMO && state.shops.length === 0 && state.dataset == null) {
       notice("没有读到任何数据。这个账号可能还没有被加进管理员名单（见 docs/ADMIN.md）。");
@@ -143,6 +144,7 @@ function render() {
   renderFeedback();
   renderRequests();
   renderBowls();
+  renderMissing();
   renderShops();
 }
 
@@ -304,6 +306,31 @@ function renderBowls() {
     })));
 }
 
+// ---- 店にない食材 ----
+
+function renderMissing() {
+  const rows = state.missing;
+  const groups = new Map();
+  for (const row of rows) {
+    const key = `${row.chain_id}|${row.ingredient_id}`;
+    if (!groups.has(key)) groups.set(key, { chain: row.chain_id, ingredient: row.ingredient_id, count: 0, places: new Set(), weeks: [] });
+    const group = groups.get(key);
+    group.count += 1;
+    if (row.place_id) group.places.add(row.place_id);
+    group.weeks.push(row.iso_week);
+  }
+  fill($("missing-summary"), [
+    ["上报件数", rows.length],
+    ["食材种数", new Set(rows.map((r) => r.ingredient_id)).size],
+    ["涉及的店", new Set(rows.map((r) => r.place_id).filter(Boolean)).size],
+  ].map(([label, value]) => el("div", { class: "card" }, [el("b", { text: String(value) }), el("span", { text: label })])));
+  if (rows.length === 0) return fill($("missing-list"), el("p", { class: "empty", text: "还没有上报。" }));
+  fill($("missing-list"), table(
+    [{ label: "连锁" }, { label: "食材 ID" }, { label: "件数", num: true }, { label: "店数", num: true }, { label: "最近一周" }],
+    [...groups.values()].sort((a, b) => b.count - a.count || a.ingredient.localeCompare(b.ingredient)).map((g) =>
+      [CHAINS[g.chain] || g.chain, g.ingredient, g.count, g.places.size, g.weeks.sort().slice(-1)[0]])));
+}
+
 // ---- 店铺清单 ----
 
 function renderShops() {
@@ -411,5 +438,7 @@ function demoData() {
     bowls.push({ upload_id: `b${i}`, chain_id: chain, estimated_grams_raw: estimated, actual_grams: Math.round(estimated * (0.75 + ((i * 13) % 60) / 100)),
       actual_yen: 900 + (i * 53) % 900, iso_week: weeks[Math.min(3, Math.floor(i / 9))], place_id: i % 3 === 0 ? "s_demo0001" : i % 5 === 0 ? "I0000000000000009" : null, app_version: "1.0.0" });
   }
-  return { feedback, requests, bowls, shops, dataset: { version: 2, checked_on: "2026-11-21" } };
+  const missing = ["shungiku", "shungiku", "shungiku", "lotus", "hakusai"].map((ingredient_id, i) => ({ upload_id: `m${i}`, ingredient_id,
+    chain_id: i === 4 ? "qibao" : "yangguofu", place_id: i % 2 ? "s_demo0001" : i === 0 ? "I0000000000000009" : null, iso_week: i < 2 ? "2026-W47" : "2026-W46" }));
+  return { feedback, requests, bowls, missing, shops, dataset: { version: 2, checked_on: "2026-11-21" } };
 }
