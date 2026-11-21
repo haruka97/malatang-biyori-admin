@@ -14,7 +14,7 @@ const TOPICS = {
 const REVIEWS = { new: "未处理", checked: "已核实", rejected: "不采用" };
 const CHAINS = { yangguofu: "楊国福", qibao: "七宝", lixiaoqi: "李暁七", lahongbang: "ラホンバン", custom: "自定义店铺" };
 
-const state = { session: null, feedback: [], requests: [], bowls: [], missing: [], shops: [], dataset: null };
+const state = { session: null, feedback: [], requests: [], bowls: [], missing: [], usage: [], documents: [], shops: [], dataset: null };
 
 // ---- Small DOM helpers (text only, never innerHTML) ----
 
@@ -120,15 +120,17 @@ async function load() {
   try {
     if (DEMO) Object.assign(state, demoData());
     else {
-      const [feedback, requests, bowls, missing, shops, dataset] = await Promise.all([
+      const [feedback, requests, bowls, missing, usage, documents, shops, dataset] = await Promise.all([
         all("shop_feedback", "id,shop_id,topic,message,source_url,app_version,iso_week,review", "iso_week.desc,id"),
         all("ingredient_requests", "upload_id,name,category,unit,grams_per_unit,app_version,iso_week,review", "iso_week.desc,upload_id"),
         all("bowl_submissions", "upload_id,chain_id,estimated_grams_raw,actual_grams,actual_yen,iso_week,place_id,app_version", "iso_week.desc,upload_id"),
         all("missing_ingredients", "upload_id,ingredient_id,chain_id,place_id,iso_week", "iso_week.desc,upload_id"),
+        all("daily_usage_days", "day,first_of_week,first_of_month,install_week,app_version,consent,built,used_recommend,used_instore,records,records_with_weight,made_share_card,imported_code,used_map,opened_shop,favorited,marked_missing,added_custom", "day.desc"),
+        api("catalog_documents?select=name,version,published_on&order=name"),
         all("shops", "id,name,chain_id,uses_chain_rule,prefecture,city,address,apple_place_id,status,verified_on,published", "id"),
         api("shop_dataset?select=version,checked_on&limit=1"),
       ]);
-      Object.assign(state, { feedback, requests, bowls, missing, shops, dataset: dataset[0] || null });
+      Object.assign(state, { feedback, requests, bowls, missing, usage, documents, shops, dataset: dataset[0] || null });
     }
     if (!DEMO && state.shops.length === 0 && state.dataset == null) {
       notice("没有读到任何数据。这个账号可能还没有被加进管理员名单（见 docs/ADMIN.md）。");
@@ -141,11 +143,72 @@ async function load() {
 }
 
 function render() {
+  renderUsage();
   renderFeedback();
   renderRequests();
   renderBowls();
   renderMissing();
   renderShops();
+}
+
+// ---- 使用情况 ----
+
+function isoWeek(day) {
+  // "2026-11-21" → "2026-W47" (ISO week, as the app writes install_week).
+  const date = new Date(`${day}T00:00:00Z`);
+  const weekday = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - weekday + 3);
+  const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const week = 1 + Math.round(((date - firstThursday) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function renderUsage() {
+  const rows = state.usage;
+  const days = [...new Set(rows.map((r) => r.day))].sort();
+  const latest = days[days.length - 1];
+  const count = (test) => rows.filter(test).length;
+  const month = latest ? latest.slice(0, 7) : "";
+  const week = latest ? isoWeek(latest) : "";
+  fill($("usage-summary"), [
+    [latest ? `DAU（${latest}）` : "DAU", latest ? count((r) => r.day === latest) : "—"],
+    ["本周活跃", latest ? count((r) => r.first_of_week && isoWeek(r.day) === week) : "—"],
+    ["本月活跃", latest ? count((r) => r.first_of_month && r.day.startsWith(month)) : "—"],
+    ["累计活跃日", rows.length],
+  ].map(([label, value]) => el("div", { class: "card" }, [el("b", { text: String(value) }), el("span", { text: label })])));
+
+  const perDay = days.slice(-30).map((day) => ({ label: day.slice(5), value: count((r) => r.day === day) }));
+  fill($("usage-days"), perDay.length ? bars(perDay) : el("p", { class: "empty", text: "还没有数据。" }));
+
+  const recent = rows.filter((r) => days.slice(-7).includes(r.day));
+  const steps = [
+    ["打开 App", () => true], ["配了一碗", (r) => r.built], ["用了おまかせ", (r) => r.used_recommend], ["开了店内模式", (r) => r.used_instore],
+    ["记录了一碗", (r) => r.records > 0], ["记录时填了重量", (r) => r.records_with_weight > 0], ["做了分享卡", (r) => r.made_share_card],
+    ["导入了コード", (r) => r.imported_code], ["看了地图", (r) => r.used_map], ["看了店铺详情", (r) => r.opened_shop],
+    ["收藏了店", (r) => r.favorited], ["点了「ない」", (r) => r.marked_missing], ["加了自作食材", (r) => r.added_custom],
+  ];
+  fill($("usage-funnel"), recent.length ? bars(steps.map(([label, test]) => ({ label, value: recent.filter(test).length }))) : el("p", { class: "empty", text: "还没有数据。" }));
+
+  const cohorts = new Map();
+  for (const row of rows) {
+    if (!row.first_of_week) continue;
+    if (!cohorts.has(row.install_week)) cohorts.set(row.install_week, new Map());
+    const weeks = cohorts.get(row.install_week), w = isoWeek(row.day);
+    weeks.set(w, (weeks.get(w) || 0) + 1);
+  }
+  const allWeeks = [...new Set(rows.map((r) => isoWeek(r.day)))].sort().slice(-8);
+  fill($("usage-cohorts"), cohorts.size ? table(
+    [{ label: "安装周" }, ...allWeeks.map((w) => ({ label: w.slice(5), num: true }))],
+    [...cohorts.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-12).map(([install, weeks]) =>
+      [install, ...allWeeks.map((w) => (w < install ? "" : weeks.get(w) || 0))])) : el("p", { class: "empty", text: "还没有数据。" }));
+
+  const consent = { agreed: "協力する", declined: "協力しない", undecided: "还没被问到" };
+  fill($("usage-consent"), recent.length ? bars(Object.entries(consent).map(([key, label]) => ({ label, value: recent.filter((r) => r.consent === key).length }))) : el("p", { class: "empty", text: "还没有数据。" }));
+
+  fill($("usage-catalog"), state.documents.length ? table(
+    [{ label: "文档" }, { label: "版本", num: true }, { label: "发布日" }],
+    state.documents.map((d) => [d.name === "ingredients" ? "食材库" : "连锁料金规则", d.version, d.published_on]))
+    : el("p", { class: "empty", text: "还没有发布过。App 用的是内置的那一份（版本 1）。" }));
 }
 
 // ---- 店铺反馈 ----
@@ -440,5 +503,16 @@ function demoData() {
   }
   const missing = ["shungiku", "shungiku", "shungiku", "lotus", "hakusai"].map((ingredient_id, i) => ({ upload_id: `m${i}`, ingredient_id,
     chain_id: i === 4 ? "qibao" : "yangguofu", place_id: i % 2 ? "s_demo0001" : i === 0 ? "I0000000000000009" : null, iso_week: i < 2 ? "2026-W47" : "2026-W46" }));
-  return { feedback, requests, bowls, missing, shops, dataset: { version: 2, checked_on: "2026-11-21" } };
+  const usage = [];
+  for (let d = 0; d < 14; d += 1) {
+    const day = new Date(Date.UTC(2026, 10, 8 + d)).toISOString().slice(0, 10);
+    for (let i = 0; i < 4 + ((d * 7) % 9); i += 1) {
+      usage.push({ day, first_of_week: (d + i) % 3 === 0, first_of_month: d === 0, install_week: i % 2 ? "2026-W45" : "2026-W46", app_version: "1.0.0",
+        consent: ["agreed", "declined", "undecided"][i % 3], built: i % 4 !== 0, used_recommend: i % 5 === 0, used_instore: i % 3 === 0, records: i % 3 === 0 ? 1 : 0,
+        records_with_weight: i % 6 === 0 ? 1 : 0, made_share_card: i % 7 === 0, imported_code: i % 9 === 0, used_map: i % 2 === 0, opened_shop: i % 4 === 0,
+        favorited: i % 8 === 0, marked_missing: i % 10 === 0, added_custom: i % 11 === 0 });
+    }
+  }
+  const documents = [{ name: "ingredients", version: 2, published_on: "2026-11-21" }];
+  return { feedback, requests, bowls, missing, usage, documents, shops, dataset: { version: 2, checked_on: "2026-11-21" } };
 }

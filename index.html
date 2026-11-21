@@ -12,7 +12,8 @@
 <header>
   <h1>マーラータン日和 后台</h1>
   <nav id="tabs" hidden>
-    <button data-tab="feedback" class="on">店铺反馈</button>
+    <button data-tab="usage" class="on">使用情况</button>
+    <button data-tab="feedback">店铺反馈</button>
     <button data-tab="requests">食材リクエスト</button>
     <button data-tab="bowls">碗数据</button>
     <button data-tab="missing">店にない食材</button>
@@ -36,6 +37,19 @@
   </section>
 
   <p id="notice" class="notice" hidden></p>
+
+  <section id="usage" class="tab" hidden>
+    <h2>使用情况</h2>
+    <p class="hint">匿名日报：一台设备一天算一次，不带设备标识。关掉「利用状況を匿名で送る」的用户不在内。</p>
+    <div id="usage-summary" class="cards"></div>
+    <h3>每天的活跃设备（最近 30 天）</h3><div id="usage-days" class="chart"></div>
+    <h3>最近 7 天：活跃的日子里做了什么</h3>
+    <p class="hint">分母是「设备 × 天」。</p><div id="usage-funnel" class="chart"></div>
+    <h3>按安装周看留存</h3>
+    <p class="hint">每格是那一周活跃的设备数（用「本周第一次活跃」的标记数）。第一格是安装那一周。</p><div id="usage-cohorts"></div>
+    <h3>数据协助的选择（最近 7 天的活跃日）</h3><div id="usage-consent" class="chart"></div>
+    <h3>食材库和料金规则的发布版本</h3><div id="usage-catalog"></div>
+  </section>
 
   <section id="feedback" class="tab" hidden>
     <div class="bar"><h2>店铺反馈・新店投稿</h2>
