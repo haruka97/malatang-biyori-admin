@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<title>マーラータン日和 后台</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>マーラータン日和 后台</h1>
+  <nav id="tabs" hidden>
+    <button data-tab="feedback" class="on">店铺反馈</button>
+    <button data-tab="requests">食材リクエスト</button>
+    <button data-tab="bowls">碗数据</button>
+    <button data-tab="shops">店铺清单</button>
+  </nav>
+  <div id="session" hidden><span id="who"></span> <button id="reload">刷新</button> <button id="signout">退出</button></div>
+</header>
+
+<main>
+  <section id="login">
+    <h2>登录</h2>
+    <p class="hint">项目地址和 publishable key 只保存在这台设备的浏览器里，不在网页文件里。密码不会保存。</p>
+    <form id="login-form">
+      <label>Supabase 项目地址<input id="host" autocomplete="off" placeholder="xxxxxxxx.supabase.co" required></label>
+      <label>Publishable key<input id="key" autocomplete="off" placeholder="sb_publishable_…" required></label>
+      <label>邮箱<input id="email" type="email" autocomplete="username" required></label>
+      <label>密码<input id="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">登录</button>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <p id="notice" class="notice" hidden></p>
+
+  <section id="feedback" class="tab" hidden>
+    <div class="bar"><h2>店铺反馈・新店投稿</h2>
+      <label>显示 <select id="feedback-filter"><option value="new">未处理</option><option value="all">全部</option></select></label></div>
+    <p class="hint">内容是用户输入的，只当线索；对照店家公式网站或公式 SNS 核实后再改店铺清单。链接不要直接相信。</p>
+    <div id="feedback-list"></div>
+  </section>
+
+  <section id="requests" class="tab" hidden>
+    <div class="bar"><h2>食材の追加リクエスト</h2>
+      <label>显示 <select id="requests-filter"><option value="new">未处理</option><option value="all">全部</option></select></label></div>
+    <div id="requests-list"></div>
+  </section>
+
+  <section id="bowls" class="tab" hidden>
+    <h2>匿名碗数据</h2>
+    <div id="bowls-summary" class="cards"></div>
+    <h3>每周的碗数</h3><div id="bowls-weeks" class="chart"></div>
+    <h3>实际重量 ÷ 估算重量（按连锁）</h3>
+    <p class="hint">1.00 表示估算刚好；大于 1 是估少了。碗数少的时候只作参考。</p>
+    <div id="bowls-chains"></div>
+    <h3>误差分布（实际 ÷ 估算）</h3><div id="bowls-histogram" class="chart"></div>
+    <h3>按店（碗数最多的 20 家）</h3><div id="bowls-places"></div>
+  </section>
+
+  <section id="shops" class="tab" hidden>
+    <div class="bar"><h2>店铺清单</h2><input id="shops-search" type="search" placeholder="搜索店名・地址・ID"></div>
+    <p id="shops-summary" class="hint"></p>
+    <div id="shops-list"></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
