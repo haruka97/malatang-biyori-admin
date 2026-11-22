@@ -8,7 +8,9 @@ const KINDS = { perGram: "重さだけ", basePlusPerGram: "基本料金＋重さ
 const PRECISIONS = { building: "号（建筑）", block: "街区", town: "町（只到町，较粗）" };
 const SHOP_COLUMNS = "id,name,chain_id,uses_chain_rule,prefecture,city,address,latitude,longitude,location_precision,apple_place_id,status,verified_on,published";
 const SHOP_ADMIN_COLUMNS = SHOP_COLUMNS + ",rule,rule_checked_on,source_url,added_by,feedback_id,origin";
-const ORIGINS = { first_hand: "一手来源", user_report: "用户投稿", visit: "自己去过" };
+const ORIGINS = { first_hand: "一手来源", listing: "店家登载的页面", user_report: "用户投稿", visit: "自己去过" };
+// Kinds of source that must come with their link.
+const LINKED_ORIGINS = ["first_hand", "listing"];
 
 // ---- Prices, the same way the app counts them (PricingRule.priceYen) ----
 
@@ -169,8 +171,9 @@ function updateShopForm() {
   const lat = Number(field("sf-lat")), lon = Number(field("sf-lon"));
   if (!(field("sf-lat") && field("sf-lon") && lat >= 20 && lat <= 46 && lon >= 122 && lon <= 154)) problems.push("位置（点「位置を調べる」）");
   const source = field("sf-source").trim();
-  if (field("sf-origin-kind") === "first_hand" ? !/^https:\/\/\S+$/.test(source) : source !== "" && !/^https:\/\/\S+$/.test(source)) {
-    problems.push(field("sf-origin-kind") === "first_hand" ? "出典（https 开头的一手来源）" : "出典（要填的话以 https 开头）");
+  const needsLink = LINKED_ORIGINS.includes(field("sf-origin-kind"));
+  if (needsLink ? !/^https:\/\/\S+$/.test(source) : source !== "" && !/^https:\/\/\S+$/.test(source)) {
+    problems.push(needsLink ? "出典（https 开头的网址）" : "出典（要填的话以 https 开头）");
   }
   let preview = "";
   if (withRule) {
