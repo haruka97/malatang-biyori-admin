@@ -435,9 +435,7 @@ $("login-form").addEventListener("submit", async (event) => {
     localStorage.setItem("admin.config", JSON.stringify({ host, key }));
     $("password").value = "";
     saveSession(session);
-    $("who").textContent = session.user && session.user.email ? session.user.email : "";
-    showApp(true);
-    await load();
+    await continueSignIn();
   } catch (error) {
     $("login-error").textContent = error.message;
   }
@@ -445,6 +443,9 @@ $("login-form").addEventListener("submit", async (event) => {
 
 $("tabs").addEventListener("click", (event) => { if (event.target.dataset.tab) selectTab(event.target.dataset.tab); });
 $("signout").addEventListener("click", signOut);
+$("mfa-form").addEventListener("submit", submitCode);
+$("mfa-cancel").addEventListener("click", cancelMfa);
+$("mfa-skip").addEventListener("click", skipMfa);
 $("reload").addEventListener("click", load);
 $("feedback-filter").addEventListener("change", renderFeedback);
 $("requests-filter").addEventListener("change", renderRequests);
@@ -459,6 +460,12 @@ $("shop-form").addEventListener("change", updateShopForm);
 (function start() {
   const saved = config();
   if (saved) { $("host").value = saved.host; $("key").value = saved.key; }
+  if (DEMO && new URLSearchParams(location.search).get("demo") === "mfa") {
+    // The setup screen with made-up values, to look at without signing in.
+    showApp(false);
+    showMfa(true, { qr_code: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#fff"/><path d="M1 1h3v3H1zM6 1h3v3H6zM1 6h3v3H1zM6 6h1v1H6zM8 8h1v1H8z"/></svg>', secret: "EXAMPLEEXAMPLEEXAMPLE" });
+    return;
+  }
   if (DEMO) {
     $("who").textContent = "示例数据";
     showApp(true);
@@ -467,9 +474,9 @@ $("shop-form").addEventListener("change", updateShopForm);
   }
   try { state.session = JSON.parse(sessionStorage.getItem("admin.session") || "null"); } catch { state.session = null; }
   if (saved && state.session) {
-    $("who").textContent = state.session.user && state.session.user.email ? state.session.user.email : "";
-    showApp(true);
-    load();
+    // A session kept in this tab: straight in when it passed both steps, otherwise the code is asked again.
+    $("login").hidden = true;
+    continueSignIn().catch(() => { saveSession(null); showApp(false); });
   } else {
     showApp(false);
   }

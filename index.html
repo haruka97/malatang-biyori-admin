@@ -36,6 +36,22 @@
     </form>
   </section>
 
+  <section id="mfa" hidden>
+    <h2 id="mfa-title">两步验证</h2>
+    <p id="mfa-help" class="hint"></p>
+    <div id="mfa-setup" hidden>
+      <img id="mfa-qr" alt="两步验证的二维码" width="200" height="200">
+      <p class="hint">手动输入用的密钥：<code id="mfa-secret"></code></p>
+    </div>
+    <form id="mfa-form">
+      <label>6 位验证码<input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required></label>
+      <button id="mfa-submit" type="submit">确认</button>
+      <button id="mfa-skip" type="button" hidden>以后再设置</button>
+      <button id="mfa-cancel" type="button">退出</button>
+      <p id="mfa-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
   <p id="notice" class="notice" hidden></p>
 
   <section id="usage" class="tab" hidden>
@@ -125,6 +141,7 @@
 </main>
 <script src="geocode.js"></script>
 <script src="shops.js"></script>
+<script src="mfa.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -53,3 +53,5 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); f
 #shop-form h3 { margin-top: 0; }
 #shops .bar span { display: flex; gap: 8px; align-items: center; }
 [hidden] { display: none !important; }
+#mfa-qr { background: #fff; border-radius: 8px; padding: 8px; display: block; margin: 8px 0; }
+#mfa-secret { font-size: 15px; letter-spacing: 1px; word-break: break-all; user-select: all; }
