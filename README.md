@@ -4,3 +4,5 @@ Static admin page for the マーラータン日和 app's owner. It contains no k
 decided by the database for the signed-in owner only.
 
 The files in `isj/` are made from 「位置参照情報」（国土交通省, https://nlftp.mlit.go.jp/isj/ ）.
+
+The files in `abr/` are made from 「アドレス・ベース・レジストリ」（デジタル庁, https://www.digital.go.jp/policies/base_registry_address ）.

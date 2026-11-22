@@ -114,7 +114,8 @@
         <label>市区町村（例：新宿区、川口市）<input id="sf-city" maxlength="30"></label>
         <label>之后的地址（例：百人町1-7-3 ○○ビル1F）<input id="sf-address" maxlength="120"></label>
         <div><button id="sf-locate" type="button">位置を調べる</button> <span id="sf-located" class="hint"></span></div>
-        <p class="hint">位置の出典：「位置参照情報」（国土交通省）を加工して使用</p>
+        <div id="sf-candidates" class="candidates" hidden></div>
+        <p class="hint">位置の出典：「アドレス・ベース・レジストリ」（デジタル庁）と「位置参照情報」（国土交通省）を加工して使用。先查号（住居番号），查不到再用街区。</p>
         <label>纬度<input id="sf-lat" inputmode="decimal"></label>
         <label>经度<input id="sf-lon" inputmode="decimal"></label>
         <label>位置精度<select id="sf-precision"><option value="building">建筑</option><option value="block">街区</option><option value="town">町（只到町，较粗）</option></select></label>

@@ -5,7 +5,7 @@
 
 const STATUS = { open: "营业", temporarily_closed: "休业", closed: "闭店" };
 const KINDS = { perGram: "重さだけ", basePlusPerGram: "基本料金＋重さ", firstWeightPlusPerGram: "最初の◯gまで定額＋以降は重さ" };
-const PRECISIONS = { building: "建筑", block: "街区", town: "町（只到町，较粗）" };
+const PRECISIONS = { building: "号（建筑）", block: "街区", town: "町（只到町，较粗）" };
 const SHOP_COLUMNS = "id,name,chain_id,uses_chain_rule,prefecture,city,address,latitude,longitude,location_precision,apple_place_id,status,verified_on,published";
 const SHOP_ADMIN_COLUMNS = SHOP_COLUMNS + ",rule,rule_checked_on,source_url,added_by,feedback_id";
 
@@ -125,6 +125,7 @@ function openShopForm(feedback) {
   for (const id of ["sf-lat", "sf-lon", "sf-base", "sf-included", "sf-per100", "sf-minimum", "sf-bonus-threshold"]) $(id).value = "";
   $("sf-precision").value = "block";
   $("sf-located").textContent = "";
+  showCandidates([]);
   $("sf-source").value = feedback && feedback.source_url ? feedback.source_url : "";
   // The prices the person entered in the app, when the report carries them.
   const rule = feedback && feedback.rule;
@@ -175,18 +176,59 @@ function updateShopForm() {
   $("sf-save").disabled = problems.length > 0;
 }
 
+// 地理院地図 at a point (zoom 18), to see where a point is. Opening it sends nothing but the coordinates in the link.
+function mapLink(point) {
+  const link = document.createElement("a");
+  link.href = `https://maps.gsi.go.jp/#18/${point.latitude.toFixed(6)}/${point.longitude.toFixed(6)}/`;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "地理院地図で見る";
+  return link;
+}
+
+function setLocation(point) {
+  $("sf-lat").value = point.latitude.toFixed(6);
+  $("sf-lon").value = point.longitude.toFixed(6);
+}
+
+// The points 「位置を調べる」 found. One: a link to look at it. Several (a block with more than one point in the
+// data): one has to be chosen, because the data cannot say at which the shop stands.
+function showCandidates(points) {
+  const box = $("sf-candidates");
+  box.replaceChildren();
+  box.hidden = points.length === 0;
+  points.forEach((point, index) => {
+    const row = document.createElement("label");
+    row.className = "check";
+    if (points.length > 1) {
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "sf-candidate";
+      radio.checked = index === 0;
+      radio.addEventListener("change", () => { setLocation(point); updateShopForm(); });
+      row.append(radio);
+    }
+    const label = points.length > 1 ? (index === 0 ? "候选 1（数据里标的代表点）" : `候选 ${index + 1}`) : "找到的位置";
+    row.append(` ${label}：${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}　`, mapLink(point));
+    box.append(row);
+  });
+}
+
 async function locateShop() {
   const button = $("sf-locate");
   button.disabled = true;
   $("sf-located").textContent = "查找中…";
+  showCandidates([]);
   try {
     const found = await Geocode.geocode(field("sf-pref") + field("sf-city").trim() + field("sf-address").trim());
     if (!found) $("sf-located").textContent = "没有找到。检查市区町村和地址的写法（例：百人町1-7-3），或手动填经纬度。";
     else {
-      $("sf-lat").value = found.latitude.toFixed(6);
-      $("sf-lon").value = found.longitude.toFixed(6);
+      setLocation(found);
       $("sf-precision").value = found.precision;
-      $("sf-located").textContent = `找到：${found.matched}（精度：${PRECISIONS[found.precision]}）`;
+      const points = found.candidates.length > 0 ? found.candidates : [found];
+      $("sf-located").textContent = `找到：${found.matched}（精度：${PRECISIONS[found.precision]}）`
+        + (points.length > 1 ? `。这个街区在数据里有 ${points.length} 个点，数据分不出店在哪一个：请打开地图对照，选离店最近的。` : "");
+      showCandidates(points);
     }
   } catch (error) {
     $("sf-located").textContent = "位置数据读取失败（isj/ 目录是否已部署？）。可以手动填经纬度。";
