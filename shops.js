@@ -7,7 +7,8 @@ const STATUS = { open: "营业", temporarily_closed: "休业", closed: "闭店" 
 const KINDS = { perGram: "重さだけ", basePlusPerGram: "基本料金＋重さ", firstWeightPlusPerGram: "最初の◯gまで定額＋以降は重さ" };
 const PRECISIONS = { building: "号（建筑）", block: "街区", town: "町（只到町，较粗）" };
 const SHOP_COLUMNS = "id,name,chain_id,uses_chain_rule,prefecture,city,address,latitude,longitude,location_precision,apple_place_id,status,verified_on,published";
-const SHOP_ADMIN_COLUMNS = SHOP_COLUMNS + ",rule,rule_checked_on,source_url,added_by,feedback_id";
+const SHOP_ADMIN_COLUMNS = SHOP_COLUMNS + ",rule,rule_checked_on,source_url,added_by,feedback_id,origin";
+const ORIGINS = { first_hand: "一手来源", user_report: "用户投稿", visit: "自己去过" };
 
 // ---- Prices, the same way the app counts them (PricingRule.priceYen) ----
 
@@ -127,9 +128,12 @@ function openShopForm(feedback) {
   $("sf-located").textContent = "";
   showCandidates([]);
   $("sf-source").value = feedback && feedback.source_url ? feedback.source_url : "";
+  // From a report: the facts come from a user, unless a first-hand source is filled in.
+  $("sf-origin-kind").value = feedback ? "user_report" : "first_hand";
   // The prices the person entered in the app, when the report carries them.
   const rule = feedback && feedback.rule;
-  $("sf-rule-on").checked = Boolean(rule);
+  // Prices a user reported are filled in below but not registered unless the owner ticks the box: nobody checked them.
+  $("sf-rule-on").checked = false;
   $("sf-kind").value = rule ? rule.kind : "perGram";
   $("sf-tax").value = !rule || rule.tax_included ? "included" : rule.tax_rate_percent === 8 ? "excluded8" : "excluded10";
   $("sf-bonus-grams").value = "80";
@@ -164,7 +168,10 @@ function updateShopForm() {
   if (!field("sf-city").trim() || !field("sf-address").trim()) problems.push("市区町村和地址");
   const lat = Number(field("sf-lat")), lon = Number(field("sf-lon"));
   if (!(field("sf-lat") && field("sf-lon") && lat >= 20 && lat <= 46 && lon >= 122 && lon <= 154)) problems.push("位置（点「位置を調べる」）");
-  if (!/^https:\/\/\S+$/.test(field("sf-source").trim())) problems.push("出典（https 开头的一手来源）");
+  const source = field("sf-source").trim();
+  if (field("sf-origin-kind") === "first_hand" ? !/^https:\/\/\S+$/.test(source) : source !== "" && !/^https:\/\/\S+$/.test(source)) {
+    problems.push(field("sf-origin-kind") === "first_hand" ? "出典（https 开头的一手来源）" : "出典（要填的话以 https 开头）");
+  }
   let preview = "";
   if (withRule) {
     const read = readRule(formValues());
@@ -243,7 +250,8 @@ async function saveShop() {
   const shop = {
     id: await shopID(name, prefecture, city, address), name, chain_id: field("sf-chain"), uses_chain_rule: $("sf-uses-chain").checked,
     prefecture, city, address, latitude: Number(field("sf-lat")), longitude: Number(field("sf-lon")),
-    location_precision: field("sf-precision"), source_url: field("sf-source").trim(), rule: read.rule || null,
+    location_precision: field("sf-precision"), source_url: field("sf-source").trim(), origin: field("sf-origin-kind"),
+    rule: read.rule || null,
     feedback_id: shopForm.feedback ? shopForm.feedback.id : "",
   };
   if (state.shops.some((s) => s.id === shop.id)) return notice("清单里已经有这家店（店名和地址完全相同）。");
@@ -341,6 +349,8 @@ function renderShops() {
       el("b", { text: s.name }),
       el("span", { class: s.published ? "tag" : "tag new", text: s.published ? "已公开" : "草稿" }),
       el("span", { class: "tag", text: STATUS[s.status] || s.status }),
+      // Where the facts come from, when it is not a first-hand source: these are the ones to check first.
+      ...(s.origin && s.origin !== "first_hand" ? [el("span", { class: "tag", text: ORIGINS[s.origin] || s.origin })] : []),
       el("span", { text: (CHAINS[s.chain_id] || s.chain_id || "单店") + (s.chain_id && !s.uses_chain_rule ? "（规则不同）" : "") }),
       el("span", { text: `确认 ${s.verified_on}` }),
       el("span", { text: s.id }),
