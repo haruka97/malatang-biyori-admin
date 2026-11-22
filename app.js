@@ -14,7 +14,9 @@ const TOPICS = {
 const REVIEWS = { new: "未处理", checked: "已核实", rejected: "不采用" };
 const CHAINS = { yangguofu: "楊国福", qibao: "七宝", lixiaoqi: "李暁七", lahongbang: "ラホンバン", custom: "自定义店铺" };
 
-const state = { session: null, feedback: [], requests: [], bowls: [], missing: [], usage: [], documents: [], shops: [], dataset: null };
+const state = { session: null, feedback: [], requests: [], bowls: [], missing: [], usage: [], documents: [], shops: [], dataset: null,
+                // True once the database has the columns and functions of 20261122180000_admin_shops.sql.
+                canEditShops: false };
 
 // ---- Small DOM helpers (text only, never innerHTML) ----
 
@@ -118,16 +120,19 @@ async function all(table, select, order) {
 async function load() {
   notice("");
   try {
-    if (DEMO) Object.assign(state, demoData());
+    if (DEMO) Object.assign(state, demoData(), { canEditShops: true });
     else {
       const [feedback, requests, bowls, missing, usage, documents, shops, dataset] = await Promise.all([
-        all("shop_feedback", "id,shop_id,topic,message,source_url,app_version,iso_week,review", "iso_week.desc,id"),
+        // With the rule column when the database has it (before the migration it does not: read without).
+        all("shop_feedback", "id,shop_id,topic,message,source_url,app_version,iso_week,review,rule", "iso_week.desc,id")
+          .catch(() => all("shop_feedback", "id,shop_id,topic,message,source_url,app_version,iso_week,review", "iso_week.desc,id")),
         all("ingredient_requests", "upload_id,name,category,unit,grams_per_unit,app_version,iso_week,review", "iso_week.desc,upload_id"),
         all("bowl_submissions", "upload_id,chain_id,estimated_grams_raw,actual_grams,actual_yen,iso_week,place_id,app_version", "iso_week.desc,upload_id"),
         all("missing_ingredients", "upload_id,ingredient_id,chain_id,place_id,iso_week", "iso_week.desc,upload_id"),
         all("daily_usage_days", "day,first_of_week,first_of_month,install_week,app_version,consent,built,used_recommend,used_instore,records,records_with_weight,made_share_card,imported_code,used_map,opened_shop,favorited,marked_missing,added_custom", "day.desc"),
         api("catalog_documents?select=name,version,published_on&order=name"),
-        all("shops", "id,name,chain_id,uses_chain_rule,prefecture,city,address,apple_place_id,status,verified_on,published", "id"),
+        all("shops", SHOP_ADMIN_COLUMNS, "id").then((rows) => { state.canEditShops = true; return rows; })
+          .catch(() => { state.canEditShops = false; return all("shops", SHOP_COLUMNS, "id"); }),
         api("shop_dataset?select=version,checked_on&limit=1"),
       ]);
       Object.assign(state, { feedback, requests, bowls, missing, usage, documents, shops, dataset: dataset[0] || null });
@@ -258,6 +263,8 @@ function renderFeedback() {
     ]),
     el("p", { class: "message", text: row.message }),
     ...(safeLink(row.source_url) ? [safeLink(row.source_url)] : []),
+    ...(row.rule ? [el("p", { class: "hint", text: `App 里填的料金：${ruleSummary(row.rule)}` })] : []),
+    el("div", { class: "actions" }, feedbackShopActions(row)),
     reviewButtons(row, row.review, markFeedback),
   ])));
 }
@@ -394,21 +401,7 @@ function renderMissing() {
       [CHAINS[g.chain] || g.chain, g.ingredient, g.count, g.places.size, g.weeks.sort().slice(-1)[0]])));
 }
 
-// ---- 店铺清单 ----
-
-function renderShops() {
-  const query = $("shops-search").value.trim().toLowerCase();
-  const rows = state.shops.filter((s) => !query || [s.id, s.name, s.prefecture, s.city, s.address].join(" ").toLowerCase().includes(query));
-  const published = state.shops.filter((s) => s.published).length;
-  $("shops-summary").textContent = state.dataset
-    ? `版本 ${state.dataset.version}（${state.dataset.checked_on}）・共 ${state.shops.length} 家，已发布 ${published} 家，有 Apple Place ID ${state.shops.filter((s) => s.apple_place_id).length} 家。修改清单请改 shopdata/shops.csv 后发布新版本。`
-    : `共 ${state.shops.length} 家。`;
-  const status = { open: "营业", temporarily_closed: "休业", closed: "闭店" };
-  fill($("shops-list"), table(
-    [{ label: "店名", wrap: true }, { label: "连锁" }, { label: "地址", wrap: true }, { label: "状态" }, { label: "确认日" }, { label: "发布" }, { label: "Apple ID" }, { label: "ID" }],
-    rows.map((s) => [s.name, (CHAINS[s.chain_id] || s.chain_id || "—") + (s.chain_id && !s.uses_chain_rule ? "（规则不同）" : ""),
-      `${s.prefecture}${s.city}${s.address}`, status[s.status] || s.status, s.verified_on, s.published ? "✓" : "草稿", s.apple_place_id ? "✓" : "", s.id])));
-}
+// ---- 店铺清单: see shops.js ----
 
 // ---- Session and navigation ----
 
@@ -456,6 +449,12 @@ $("reload").addEventListener("click", load);
 $("feedback-filter").addEventListener("change", renderFeedback);
 $("requests-filter").addEventListener("change", renderRequests);
 $("shops-search").addEventListener("input", renderShops);
+$("shops-add").addEventListener("click", () => openShopForm(null));
+$("sf-locate").addEventListener("click", locateShop);
+$("sf-save").addEventListener("click", saveShop);
+$("sf-cancel").addEventListener("click", closeShopForm);
+$("shop-form").addEventListener("input", updateShopForm);
+$("shop-form").addEventListener("change", updateShopForm);
 
 (function start() {
   const saved = config();

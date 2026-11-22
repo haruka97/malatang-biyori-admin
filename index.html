@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
 <title>マーラータン日和 后台</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -83,11 +83,47 @@
   </section>
 
   <section id="shops" class="tab" hidden>
-    <div class="bar"><h2>店铺清单</h2><input id="shops-search" type="search" placeholder="搜索店名・地址・ID"></div>
+    <div class="bar"><h2>店铺清单</h2>
+      <span><button id="shops-add" class="primary" hidden>お店を追加</button> <input id="shops-search" type="search" placeholder="搜索店名・地址・ID"></span></div>
     <p id="shops-summary" class="hint"></p>
+    <div id="shop-form" class="item" hidden>
+      <h3>お店を追加</h3>
+      <p class="hint">投稿只当线索：店名、地址、料金都要对照一手来源（店家或运营公司的官网・官方 SNS・自己发的新闻稿、商业设施的官方店铺页）再填。保存后是草稿，在清单里确认后再公开。</p>
+      <p id="sf-origin" class="message" hidden></p>
+      <div class="grid">
+        <label>店名（正式名称）<input id="sf-name" maxlength="60"></label>
+        <label>连锁<select id="sf-chain"><option value="">单店（没有连锁）</option><option value="yangguofu">楊国福</option><option value="qibao">七宝</option><option value="lixiaoqi">李暁七</option><option value="lahongbang">ラホンバン</option></select></label>
+        <label class="check"><input id="sf-uses-chain" type="checkbox" checked> 和连锁的料金相同（不同的分店取消勾选）</label>
+        <label>都道府县<select id="sf-pref"><option>東京都</option><option>神奈川県</option><option>埼玉県</option><option>千葉県</option></select></label>
+        <label>市区町村（例：新宿区、川口市）<input id="sf-city" maxlength="30"></label>
+        <label>之后的地址（例：百人町1-7-3 ○○ビル1F）<input id="sf-address" maxlength="120"></label>
+        <div><button id="sf-locate" type="button">位置を調べる</button> <span id="sf-located" class="hint"></span></div>
+        <label>纬度<input id="sf-lat" inputmode="decimal"></label>
+        <label>经度<input id="sf-lon" inputmode="decimal"></label>
+        <label>位置精度<select id="sf-precision"><option value="building">建筑</option><option value="block">街区</option><option value="town">町（只到町，较粗）</option></select></label>
+        <label>出典（一手来源的网址，必填）<input id="sf-source" type="url" maxlength="300" placeholder="https://"></label>
+      </div>
+      <label class="check"><input id="sf-rule-on" type="checkbox"> 登记这家店自己的料金（不勾：用连锁的料金；单店则显示「一般的な目安」）</label>
+      <p id="sf-reported-prices" class="hint"></p>
+      <div id="sf-rule" class="grid" hidden>
+        <label>料金のしくみ<select id="sf-kind"><option value="perGram">重さだけ</option><option value="basePlusPerGram">基本料金＋重さ</option><option value="firstWeightPlusPerGram">最初の◯gまで定額＋以降は重さ</option></select></label>
+        <label id="sf-base-row">基本料金・定额（円）<input id="sf-base" inputmode="numeric"></label>
+        <label id="sf-included-row">定额包含的重量（g）<input id="sf-included" inputmode="numeric"></label>
+        <label>100g あたり（円）<input id="sf-per100" inputmode="decimal" placeholder="例：400"></label>
+        <label>税<select id="sf-tax"><option value="included">税込</option><option value="excluded10">税抜（10%）</option><option value="excluded8">税抜（8%）</option></select></label>
+        <label>最低料金（円，没有就空着）<input id="sf-minimum" inputmode="numeric"></label>
+        <label>送面的条件（円以上；0＝不论金额都送；不送面就空着）<input id="sf-bonus-threshold" inputmode="numeric"></label>
+        <label>面的量（g）<input id="sf-bonus-grams" inputmode="numeric" value="80"></label>
+      </div>
+      <p id="sf-preview" class="hint"></p>
+      <p id="sf-problems" class="error"></p>
+      <div class="actions"><button id="sf-save" class="primary" disabled>保存为草稿</button><button id="sf-cancel">取消</button></div>
+    </div>
     <div id="shops-list"></div>
   </section>
 </main>
+<script src="geocode.js"></script>
+<script src="shops.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
