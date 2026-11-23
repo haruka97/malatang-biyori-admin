@@ -8,7 +8,7 @@ const KINDS = { perGram: "重さだけ", basePlusPerGram: "基本料金＋重さ
 const PRECISIONS = { building: "号（建筑）", block: "街区", town: "町（只到町，较粗）" };
 const SHOP_COLUMNS = "id,name,chain_id,uses_chain_rule,prefecture,city,address,latitude,longitude,location_precision,apple_place_id,status,verified_on,published";
 const SHOP_ADMIN_COLUMNS = SHOP_COLUMNS + ",rule,rule_checked_on,source_url,added_by,feedback_id,origin";
-const ORIGINS = { first_hand: "一手来源", listing: "店家登载的页面", user_report: "用户投稿", visit: "自己去过" };
+const ORIGINS = { first_hand: "一手来源", listing: "店家登载的页面", owner_search: "自己上网搜索", user_report: "用户投稿", visit: "自己去过" };
 // Kinds of source that must come with their link.
 const LINKED_ORIGINS = ["first_hand", "listing"];
 
