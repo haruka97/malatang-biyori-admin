@@ -16,7 +16,9 @@ const CHAINS = { yangguofu: "楊国福", qibao: "七宝", lixiaoqi: "李暁七",
 
 const state = { session: null, feedback: [], requests: [], bowls: [], missing: [], usage: [], documents: [], shops: [], dataset: null,
                 // True once the database has the columns and functions of 20261122180000_admin_shops.sql.
-                canEditShops: false };
+                canEditShops: false,
+                // 账号与人气 (accounts.js): true once the database has the functions of 20261126100000.
+                canManageAccounts: false, accounts: [], alerts: [], shopStats: [] };
 
 // ---- Small DOM helpers (text only, never innerHTML) ----
 
@@ -137,6 +139,7 @@ async function load() {
       ]);
       Object.assign(state, { feedback, requests, bowls, missing, usage, documents, shops, dataset: dataset[0] || null });
     }
+    await loadAccounts();
     if (!DEMO && state.shops.length === 0 && state.dataset == null) {
       notice("没有读到任何数据。这个账号可能还没有被加进管理员名单（见 docs/ADMIN.md）。");
     }
@@ -154,6 +157,7 @@ function render() {
   renderBowls();
   renderMissing();
   renderShops();
+  renderAccounts();
 }
 
 // ---- 使用情况 ----
@@ -450,6 +454,7 @@ $("reload").addEventListener("click", load);
 $("feedback-filter").addEventListener("change", renderFeedback);
 $("requests-filter").addEventListener("change", renderRequests);
 $("shops-search").addEventListener("input", renderShops);
+$("accounts-search").addEventListener("input", renderAccounts);
 $("shops-add").addEventListener("click", () => openShopForm(null));
 $("sf-locate").addEventListener("click", locateShop);
 $("sf-save").addEventListener("click", saveShop);
