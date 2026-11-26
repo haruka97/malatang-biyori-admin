@@ -19,6 +19,7 @@
     <button data-tab="missing">店にない食材</button>
     <button data-tab="shops">店铺清单</button>
     <button data-tab="accounts">账号与人气</button>
+    <button data-tab="regions">地区分布</button>
     <button data-tab="notices">お知らせ</button>
   </nav>
   <div id="session" hidden><span id="who"></span> <button id="reload">刷新</button> <button id="signout">退出</button></div>
@@ -154,6 +155,18 @@
     <h3>账号</h3><div id="accounts-list"></div>
   </section>
 
+  <section id="regions" class="tab" hidden>
+    <div class="bar"><h2>地区分布</h2>
+      <span><label>地图上显示 <select id="regions-metric">
+        <option value="bowls">记录的碗</option><option value="people">登录用户（人）</option>
+        <option value="favorites">收藏</option><option value="ratings">评价</option><option value="shops">清单里的店</option>
+      </select></label></span></div>
+    <p class="hint">按店所在的都道府县数：匿名上传的碗（「協力する」的用户，带着吃的店）、登录用户的收藏和评价。这是「在哪里吃」，不是「住在哪里」；App 不收集位置。没选店或店不在清单里的算「不明」。同一个登录用户在两个地区都有收藏时，两边各算一人。</p>
+    <div id="regions-summary" class="cards"></div>
+    <div id="regions-map"></div>
+    <div id="regions-table"></div>
+  </section>
+
   <section id="notices" class="tab" hidden>
     <div class="bar"><h2>お知らせ</h2>
       <span><button id="notices-add" class="primary" hidden>新しいお知らせ</button></span></div>
@@ -194,6 +207,7 @@
 <script src="mfa.js"></script>
 <script src="accounts.js"></script>
 <script src="notices.js"></script>
+<script src="regions.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

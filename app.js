@@ -143,6 +143,7 @@ async function load() {
     }
     await loadAccounts();
     await loadNotices();
+    await loadRegions();
     if (!DEMO && state.shops.length === 0 && state.dataset == null) {
       notice("没有读到任何数据。这个账号可能还没有被加进管理员名单（见 docs/ADMIN.md）。");
     }
@@ -162,6 +163,7 @@ function render() {
   renderShops();
   renderAccounts();
   renderNotices();
+  renderRegions();
 }
 
 // ---- 使用情况 ----
@@ -459,6 +461,7 @@ $("feedback-filter").addEventListener("change", renderFeedback);
 $("requests-filter").addEventListener("change", renderRequests);
 $("shops-search").addEventListener("input", renderShops);
 $("accounts-search").addEventListener("input", renderAccounts);
+$("regions-metric").addEventListener("change", renderRegions);
 $("notices-add").addEventListener("click", () => openNoticeForm(null));
 $("nf-cancel").addEventListener("click", closeNoticeForm);
 $("nf-save").addEventListener("click", saveNotice);
