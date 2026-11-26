@@ -18,7 +18,9 @@ const state = { session: null, feedback: [], requests: [], bowls: [], missing: [
                 // True once the database has the columns and functions of 20261122180000_admin_shops.sql.
                 canEditShops: false,
                 // 账号与人气 (accounts.js): true once the database has the functions of 20261126100000.
-                canManageAccounts: false, accounts: [], alerts: [], shopStats: [] };
+                canManageAccounts: false, accounts: [], alerts: [], shopStats: [],
+                // お知らせ (notices.js): true once the database has the table of 20261126110000.
+                canManageNotices: false, notices: [] };
 
 // ---- Small DOM helpers (text only, never innerHTML) ----
 
@@ -140,6 +142,7 @@ async function load() {
       Object.assign(state, { feedback, requests, bowls, missing, usage, documents, shops, dataset: dataset[0] || null });
     }
     await loadAccounts();
+    await loadNotices();
     if (!DEMO && state.shops.length === 0 && state.dataset == null) {
       notice("没有读到任何数据。这个账号可能还没有被加进管理员名单（见 docs/ADMIN.md）。");
     }
@@ -158,6 +161,7 @@ function render() {
   renderMissing();
   renderShops();
   renderAccounts();
+  renderNotices();
 }
 
 // ---- 使用情况 ----
@@ -455,6 +459,12 @@ $("feedback-filter").addEventListener("change", renderFeedback);
 $("requests-filter").addEventListener("change", renderRequests);
 $("shops-search").addEventListener("input", renderShops);
 $("accounts-search").addEventListener("input", renderAccounts);
+$("notices-add").addEventListener("click", () => openNoticeForm(null));
+$("nf-cancel").addEventListener("click", closeNoticeForm);
+$("nf-save").addEventListener("click", saveNotice);
+$("nf-insert").addEventListener("click", insertNoticePicture);
+$("nf-emphasized").addEventListener("change", updateNoticeForm);
+$("notice-form").addEventListener("input", updateNoticeForm);
 $("shops-add").addEventListener("click", () => openShopForm(null));
 $("sf-locate").addEventListener("click", locateShop);
 $("sf-save").addEventListener("click", saveShop);

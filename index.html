@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' https://*.supabase.co; img-src 'self' data: blob: https://*.supabase.co; base-uri 'none'; form-action 'none'">
 <title>マーラータン日和 后台</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -19,6 +19,7 @@
     <button data-tab="missing">店にない食材</button>
     <button data-tab="shops">店铺清单</button>
     <button data-tab="accounts">账号与人气</button>
+    <button data-tab="notices">お知らせ</button>
   </nav>
   <div id="session" hidden><span id="who"></span> <button id="reload">刷新</button> <button id="signout">退出</button></div>
 </header>
@@ -152,10 +153,39 @@
     <h3>账号</h3><div id="accounts-list"></div>
   </section>
 
+  <section id="notices" class="tab" hidden>
+    <div class="bar"><h2>お知らせ</h2>
+      <span><button id="notices-add" class="primary" hidden>新しいお知らせ</button></span></div>
+    <p class="hint">App 的「お知らせ」里显示的内容（つくる 右上角的信封、設定 的第一行）。发布后用户的 App 一天内会收到，并出现未读的红点；不是推送通知。正文是纯文本，换行会保留，图片可以插在段落之间。先存草稿，看过预览再发布：「今すぐ公開」，或者选一个日期和时间「予約公開」（到时间自动出现，不用再操作）。</p>
+    <p id="notices-summary" class="hint"></p>
+    <div id="notice-form" class="item" hidden>
+      <h3 id="nf-heading">新しいお知らせ</h3>
+      <div class="grid">
+        <label>标题（最多 60 字，一行）<input id="nf-title" type="text" maxlength="60" placeholder="利用規約を改定しました"></label>
+        <label>标签（最多 10 字；可以选，也可以自己打）<input id="nf-label" type="text" maxlength="10" list="nf-labels" placeholder="お知らせ">
+          <datalist id="nf-labels"><option value="お知らせ"><option value="重要"><option value="緊急"><option value="お店"><option value="PR"></datalist></label>
+        <label class="check"><input id="nf-emphasized" type="checkbox"> 强调标签（红底白字，用在「重要」「緊急」）</label>
+        <label>链接（可不填，https://）<input id="nf-link" type="url" maxlength="300" placeholder="https://…"></label>
+      </div>
+      <label>正文（最多 4000 字，纯文本，换行保留）<textarea id="nf-body" rows="8" maxlength="4000"></textarea></label>
+      <div class="grid">
+        <label>在光标的位置插入图片（JPEG 或 PNG，会自动缩到长边 1600 像素；可以插多张）<input id="nf-file" type="file" accept="image/jpeg,image/png"></label>
+        <span><button id="nf-insert" type="button">画像を挿入</button></span>
+      </div>
+      <p class="hint">图片在正文里是单独一行的 [[image:文件名]]。想换位置就把那一行剪切到别处；删掉那一行就是去掉图片。</p>
+      <p id="nf-count" class="hint"></p>
+      <div id="nf-preview" class="item"></div>
+      <p id="nf-error" class="error"></p>
+      <div class="actions"><button id="nf-save" class="primary" type="button">保存</button><button id="nf-cancel" type="button">取消</button></div>
+    </div>
+    <div id="notices-list"></div>
+  </section>
+
 <script src="geocode.js"></script>
 <script src="shops.js"></script>
 <script src="mfa.js"></script>
 <script src="accounts.js"></script>
+<script src="notices.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

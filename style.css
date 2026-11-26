@@ -59,3 +59,11 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); f
 /* The points 「位置を調べる」 found: one per line, with a link to the map. */
 .candidates { grid-column: 1 / -1; display: grid; gap: 4px; font-size: 13px; }
 .candidates a { white-space: nowrap; }
+
+/* お知らせ: the picture as the app shows it, never wider than the card. */
+.notice-picture { display: block; max-width: min(100%, 360px); border-radius: 10px; margin: 6px 0; }
+#notice-form textarea { display: block; margin-top: 4px; width: 100%; box-sizing: border-box; font: inherit; color: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+#notices h4, #notice-form h4 { margin: 4px 0; font-size: 15px; }
+.notice-schedule { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.notice-when { padding: 6px 8px; }
+.tag.strong { background: var(--accent); border-color: var(--accent); color: #fff; }
