@@ -71,3 +71,6 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); f
 .prefectures { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px 10px; margin: 8px 0; }
 #nf-area { margin: 10px 0; }
 #nf-area summary { cursor: pointer; }
+
+/* A line that needs attention (a slow recomputation). */
+#accounts-runs .warn { color: #b3261e; font-weight: 600; }

@@ -23,6 +23,8 @@ async function loadAccounts() {
       api("shop_stats?select=shop_key,favorite_count,rating_count,rating_avg,updated_at&order=shop_key"),
     ]);
     Object.assign(state, { accounts, alerts, shopStats, canManageAccounts: true });
+    // Its own request: before migration 20261126160000 this function is missing and the rest still shows.
+    try { state.statsRuns = await rpc("admin_shop_stats_runs", {}); } catch (error) { state.statsRuns = null; }
   } catch (error) {
     // Before the migration the functions do not exist: the tab says so instead of failing the whole page.
     Object.assign(state, { accounts: [], alerts: [], shopStats: [], canManageAccounts: false });
@@ -95,6 +97,7 @@ function renderAccounts() {
     ["有数字显示的店", state.shopStats.length],
   ].map(([label, value]) => el("div", { class: "card" }, [el("b", { text: String(value) }), el("span", { text: label })])));
 
+  renderStatsRuns();
   fill($("accounts-alerts"), state.alerts.length === 0
     ? el("p", { class: "empty", text: "没有需要看的迹象。" })
     : table(
@@ -126,6 +129,32 @@ function renderAccounts() {
     ])));
 }
 
+// The nightly recomputation: how long it took. Slow runs are the sign to change how it is computed.
+const SLOW_RUN_MS = 5000;
+
+function renderStatsRuns() {
+  const box = $("accounts-runs");
+  if (!box) return;
+  const runs = state.statsRuns;
+  if (runs === null || runs === undefined) {
+    fill(box, el("p", { class: "empty", text: "还没有重算用时的记录（迁移 20261126160000 未执行）。" }));
+    return;
+  }
+  if (runs.length === 0) {
+    fill(box, el("p", { class: "empty", text: "还没有重算过（每天凌晨 4:10 一次）。" }));
+    return;
+  }
+  const latest = runs[0];
+  const slowest = runs.reduce((max, run) => Math.max(max, run.duration_ms), 0);
+  const seconds = (ms) => (ms < 1000 ? `${ms} 毫秒` : `${(ms / 1000).toFixed(1)} 秒`);
+  const slow = latest.duration_ms >= SLOW_RUN_MS;
+  fill(box, el("p", { class: slow ? "warn" : "", text:
+    `上一次：${new Date(latest.ran_at).toLocaleString("ja-JP")}，用了 ${seconds(latest.duration_ms)}`
+    + `（收藏 ${latest.favorites} 个、评价 ${latest.ratings} 条、有数字的店 ${latest.shops_shown} 家）。`
+    + `最近 ${runs.length} 次里最慢 ${seconds(slowest)}。`
+    + (slow ? "超过 5 秒了：请告诉 Claude，该改成只重算有变化的店。" : "") }));
+}
+
 // ---- Sample data for ?demo (made up) ----
 
 function demoAccounts() {
@@ -145,5 +174,9 @@ function demoAccounts() {
     { shop_key: "s_demo0001", favorite_count: 38, rating_count: 12, rating_avg: 4.2, updated_at: "2026-11-25T19:10:00Z" },
     { shop_key: "I0000000000000009", favorite_count: 7, rating_count: null, rating_avg: null, updated_at: "2026-11-25T19:10:00Z" },
   ];
-  return { accounts, alerts, shopStats };
+  const statsRuns = [
+    { ran_at: "2026-11-25T19:10:00Z", duration_ms: 42, favorites: 8, ratings: 5, shops_shown: 2 },
+    { ran_at: "2026-11-24T19:10:00Z", duration_ms: 38, favorites: 6, ratings: 4, shops_shown: 1 },
+  ];
+  return { accounts, alerts, shopStats, statsRuns };
 }
