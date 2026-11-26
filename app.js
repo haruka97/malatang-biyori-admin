@@ -20,7 +20,7 @@ const state = { session: null, feedback: [], requests: [], bowls: [], missing: [
                 // 账号与人气 (accounts.js): true once the database has the functions of 20261126100000.
                 canManageAccounts: false, accounts: [], alerts: [], shopStats: [],
                 // お知らせ (notices.js): true once the database has the table of 20261126110000.
-                canManageNotices: false, notices: [] };
+                canManageNotices: false, notices: [], noticeCounts: {} };
 
 // ---- Small DOM helpers (text only, never innerHTML) ----
 

@@ -67,3 +67,4 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); f
 .notice-schedule { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .notice-when { padding: 6px 8px; }
 .tag.strong { background: var(--accent); border-color: var(--accent); color: #fff; }
+.notice-counts { font-variant-numeric: tabular-nums; }

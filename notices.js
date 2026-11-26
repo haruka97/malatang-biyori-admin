@@ -20,12 +20,17 @@ const noticeForm = { editing: null, previews: new Map() };
 
 async function loadNotices() {
   if (DEMO) {
-    Object.assign(state, { notices: demoNotices(), canManageNotices: true });
+    Object.assign(state, { notices: demoNotices(), canManageNotices: true, noticeCounts: { "demo-1": { shown: 128, opened: 47 } } });
     return;
   }
   try {
     const notices = await api("notices?select=id,title,body,label,emphasized,link_url,published_at,created_at,updated_at&order=created_at.desc");
-    Object.assign(state, { notices, canManageNotices: true });
+    Object.assign(state, { notices, canManageNotices: true, noticeCounts: {} });
+    // How often each notice was seen (20261126130000); without that migration the list simply shows no numbers.
+    try {
+      const counts = await rpc("admin_notice_counts", {});
+      state.noticeCounts = Object.fromEntries(counts.map((row) => [row.notice_id, row]));
+    } catch (error) { state.noticeCounts = {}; }
   } catch (error) {
     // Before the migration the table does not exist: the tab says so instead of failing the whole page.
     Object.assign(state, { notices: [], canManageNotices: false });
@@ -158,6 +163,15 @@ async function insertNoticePicture() {
   $("nf-file").value = "";
   $("nf-insert").disabled = false;
   updateNoticeForm();
+}
+
+// 「表示 128・開封 47（37%）」: devices on which the notice appeared in the list, and on which it was opened.
+// Anonymous and approximate (once per device; people who switched the usage report off are not counted).
+function noticeCountText(item) {
+  if (noticeStatus(item) === "draft" && !(state.noticeCounts || {})[item.id]) return "";
+  const count = (state.noticeCounts || {})[item.id] || { shown: 0, opened: 0 };
+  const rate = count.shown > 0 ? `（${Math.round((count.opened / count.shown) * 100)}%）` : "";
+  return el("span", { class: "notice-counts", text: `表示 ${count.shown}・開封 ${count.opened}${rate}` });
 }
 
 function noticeTag(label, emphasized) {
@@ -338,6 +352,7 @@ function renderNotices() {
           text: { out: `已发布 ${localMinute(item.published_at)}`, scheduled: `预约 ${localMinute(item.published_at)}`, draft: "草稿" }[noticeStatus(item)] }),
         noticeTag(item.label, item.emphasized),
         el("span", { text: `写于 ${localDay(item.created_at)}` }),
+        noticeCountText(item),
       ]),
       el("h4", { text: item.title }),
       // Plain text and pictures only, like in the app.
