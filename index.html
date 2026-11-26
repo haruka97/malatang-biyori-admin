@@ -166,6 +166,7 @@
           <datalist id="nf-labels"><option value="お知らせ"><option value="重要"><option value="緊急"><option value="お店"><option value="PR"></datalist></label>
         <label class="check"><input id="nf-emphasized" type="checkbox"> 强调标签（红底白字，用在「重要」「緊急」）</label>
         <label>链接（可不填，https://）<input id="nf-link" type="url" maxlength="300" placeholder="https://…"></label>
+        <label>链接按钮上的字（可不填，最多 20 字）<input id="nf-link-label" type="text" maxlength="20" placeholder="くわしく見る"></label>
       </div>
       <label>正文（最多 4000 字，纯文本，换行保留）<textarea id="nf-body" rows="8" maxlength="4000"></textarea></label>
       <div class="grid">
@@ -173,6 +174,12 @@
         <span><button id="nf-insert" type="button">画像を挿入</button></span>
       </div>
       <p class="hint">图片在正文里是单独一行的 [[image:文件名]]。想换位置就把那一行剪切到别处；删掉那一行就是去掉图片。</p>
+      <details id="nf-area">
+        <summary id="nf-area-summary">对象地区：全国</summary>
+        <p class="hint">不选＝全国所有人。选了以后，只有和这些都道府县有关的人看得到：选过・收藏过・记录过那里的店的人，以及允许了定位、人在那里附近的人。判断在手机上做，位置不会发给我们。刚装、还没选过店也没允许定位的人只看得到「全国」的。</p>
+        <div id="nf-prefectures" class="prefectures"></div>
+        <div class="actions"><button id="nf-area-clear" type="button">全部取消（全国）</button></div>
+      </details>
       <p id="nf-count" class="hint"></p>
       <div id="nf-preview" class="item"></div>
       <p id="nf-error" class="error"></p>

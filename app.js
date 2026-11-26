@@ -464,6 +464,8 @@ $("nf-cancel").addEventListener("click", closeNoticeForm);
 $("nf-save").addEventListener("click", saveNotice);
 $("nf-insert").addEventListener("click", insertNoticePicture);
 $("nf-emphasized").addEventListener("change", updateNoticeForm);
+$("nf-prefectures").addEventListener("change", updateNoticeForm);
+$("nf-area-clear").addEventListener("click", () => { fillPrefectures([]); $("nf-area").open = true; updateNoticeForm(); });
 $("notice-form").addEventListener("input", updateNoticeForm);
 $("shops-add").addEventListener("click", () => openShopForm(null));
 $("sf-locate").addEventListener("click", locateShop);

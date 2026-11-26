@@ -12,6 +12,11 @@ const NOTICE_LIMITS = { title: 60, body: 4000, link: 300, imageEdge: 1600, image
 // The label is the owner's own word; these are only offered as suggestions.
 const NOTICE_LABELS = ["お知らせ", "重要", "緊急", "お店", "PR"];
 const NOTICE_LABEL_LENGTH = 10;
+// A notice may be for some prefectures only; none chosen = everybody. The app decides on the device whether a person
+// has to do with one of them (the shops they used; where they are, when location is allowed): nothing is sent for it.
+const PREFECTURES = ["北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
+  "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
+  "鳥取県", "島根県", "岡山県", "広島県", "山口県", "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"];
 const NOTICE_IMAGE_LINE = /^\s*\[\[image:([a-z0-9_-]{1,60}\.(?:jpg|png))\]\]\s*$/;
 
 // What the form is working on: the notice being changed (null = a new one), and the pictures uploaded in this
@@ -24,7 +29,7 @@ async function loadNotices() {
     return;
   }
   try {
-    const notices = await api("notices?select=id,title,body,label,emphasized,link_url,published_at,created_at,updated_at&order=created_at.desc");
+    const notices = await api("notices?select=id,title,body,label,emphasized,link_url,link_label,prefectures,published_at,created_at,updated_at&order=created_at.desc");
     Object.assign(state, { notices, canManageNotices: true, noticeCounts: {} });
     // How often each notice was seen (20261126130000); without that migration the list simply shows no numbers.
     try {
@@ -174,6 +179,27 @@ function noticeCountText(item) {
   return el("span", { class: "notice-counts", text: `表示 ${count.shown}・開封 ${count.opened}${rate}` });
 }
 
+// 「全国」 or 「東京都・大阪府」.
+function areaText(prefectures) {
+  const chosen = PREFECTURES.filter((name) => (prefectures || []).includes(name));
+  return chosen.length === 0 ? "全国" : chosen.join("・");
+}
+
+function chosenPrefectures() {
+  return [...document.querySelectorAll("#nf-prefectures input:checked")].map((box) => box.value);
+}
+
+// The 47 boxes, made once; `chosen` are ticked.
+function fillPrefectures(chosen) {
+  const boxes = PREFECTURES.map((name) => {
+    const box = el("input", { type: "checkbox", value: name });
+    box.checked = (chosen || []).includes(name);
+    return el("label", { class: "check" }, [box, document.createTextNode(` ${name}`)]);
+  });
+  fill($("nf-prefectures"), boxes);
+  $("nf-area").open = (chosen || []).length > 0;
+}
+
 function noticeTag(label, emphasized) {
   return el("span", { class: `tag${emphasized ? " strong" : ""}`, text: label || "お知らせ" });
 }
@@ -200,8 +226,10 @@ function openNoticeForm(item) {
   $("nf-title").value = item ? item.title : "";
   $("nf-body").value = item ? item.body : "";
   $("nf-link").value = item && item.link_url ? item.link_url : "";
+  $("nf-link-label").value = item && item.link_label ? item.link_label : "";
   $("nf-label").value = item && item.label ? item.label : "お知らせ";
   $("nf-emphasized").checked = Boolean(item && item.emphasized);
+  fillPrefectures(item ? item.prefectures : []);
   $("nf-file").value = "";
   $("nf-heading").textContent = item ? ({ out: "修改已发布的お知らせ", scheduled: "修改预约中的お知らせ", draft: "修改草稿" }[noticeStatus(item)]) : "新しいお知らせ";
   $("nf-error").textContent = "";
@@ -227,8 +255,12 @@ function updateNoticeForm() {
     el("h4", { text: title || "（标题）" }),
     el("div", { class: "meta" }, noticeTag($("nf-label").value.trim(), $("nf-emphasized").checked)),
     ...(body ? noticeBody(body) : [el("p", { class: "message", text: "（正文）" })]),
-    link ? el("p", { class: "hint", text: `「くわしく見る」→ ${link}` }) : "",
+    link ? el("p", { class: "hint", text: `「${$("nf-link-label").value.trim() || "くわしく見る"}」→ ${link}` }) : "",
   ]);
+  // The words belong to the link: without a link there is nothing to put them on.
+  $("nf-link-label").disabled = !link;
+  const area = chosenPrefectures();
+  $("nf-area-summary").textContent = `对象地区：${areaText(area)}${area.length ? `（${area.length} 个都道府县）` : ""}`;
   const problem = noticeProblem(title, body, link, $("nf-label").value.trim());
   $("nf-save").disabled = Boolean(problem);
   $("nf-error").textContent = title || body ? (problem || "") : "";
@@ -244,7 +276,8 @@ async function saveNotice() {
   if (editing && noticeStatus(editing) === "out" && !confirm("这条已经发布。修改后，用户的 App 会在一天内显示新的内容。确定？")) return;
   $("nf-save").disabled = true;
   try {
-    const fields = { title, body, label: $("nf-label").value.trim() || "お知らせ", emphasized: $("nf-emphasized").checked, link_url: link || null };
+    const fields = { title, body, label: $("nf-label").value.trim() || "お知らせ", emphasized: $("nf-emphasized").checked, link_url: link || null,
+      link_label: link ? ($("nf-link-label").value.trim() || null) : null, prefectures: chosenPrefectures() };
     if (editing) fields.id = editing.id;
     const id = DEMO ? (editing ? editing.id : `demo-${Date.now()}`) : await rpc("admin_save_notice", { notice: fields });
     const now = new Date().toISOString();
@@ -351,12 +384,14 @@ function renderNotices() {
         el("span", { class: `tag${noticeStatus(item) === "out" ? "" : " new"}`,
           text: { out: `已发布 ${localMinute(item.published_at)}`, scheduled: `预约 ${localMinute(item.published_at)}`, draft: "草稿" }[noticeStatus(item)] }),
         noticeTag(item.label, item.emphasized),
+        el("span", { class: "tag", text: `地区：${areaText(item.prefectures)}` }),
         el("span", { text: `写于 ${localDay(item.created_at)}` }),
         noticeCountText(item),
       ]),
       el("h4", { text: item.title }),
       // Plain text and pictures only, like in the app.
       ...noticeBody(item.body),
+      item.link_url ? el("p", { class: "hint", text: `ボタン：「${item.link_label || "くわしく見る"}」` }) : "",
       item.link_url ? (safeLink(item.link_url) || "") : "",
       el("div", { class: "actions" }, noticeActions(item)),
     ])));
@@ -366,10 +401,10 @@ function renderNotices() {
 
 function demoNotices() {
   return [
-    { id: "demo-1", title: "利用規約を改定しました", body: "お店の評価として送るのは★だけに変更しました。\nくわしくは利用規約をご覧ください。", label: "重要", emphasized: true,
+    { id: "demo-1", title: "利用規約を改定しました", body: "お店の評価として送るのは★だけに変更しました。\nくわしくは利用規約をご覧ください。", label: "重要", emphasized: true, link_label: "利用規約を見る",
       link_url: "https://example.com/terms.html", published_at: "2026-11-20T03:00:00Z", created_at: "2026-11-20T02:00:00Z", updated_at: "2026-11-20T03:00:00Z" },
     { id: "demo-2", title: "お気に入りの人数が見られるようになりました",
-      body: "お店のページで、お気に入りに入れた人の数とみんなの評価が見られます。\n\n[[image:demo-picture.jpg]]\n\n人数が集まったお店から順に表示されます。", label: "お店", emphasized: false,
+      body: "お店のページで、お気に入りに入れた人の数とみんなの評価が見られます。\n\n[[image:demo-picture.jpg]]\n\n人数が集まったお店から順に表示されます。", label: "お店", emphasized: false, prefectures: ["東京都", "神奈川県"],
       link_url: null, published_at: null, created_at: "2026-11-25T02:00:00Z", updated_at: "2026-11-25T02:00:00Z" },
     { id: "demo-3", title: "年末年始のお知らせ", body: "年末年始も通常どおりご利用いただけます。", label: "お知らせ", emphasized: false,
       link_url: null, published_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), created_at: "2026-11-26T01:00:00Z", updated_at: "2026-11-26T01:00:00Z" },
