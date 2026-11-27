@@ -12,7 +12,9 @@ const TOPICS = {
   new_shop: "新店投稿", owner: "店家联系", other: "其他",
 };
 const REVIEWS = { new: "未处理", checked: "已核实", rejected: "不采用" };
-const CHAINS = { yangguofu: "楊国福", qibao: "七宝", lixiaoqi: "李暁七", lahongbang: "ラホンバン", custom: "自定义店铺" };
+// Old rows only (test builds before 2026-11-27 sent a chain ID); new ones say where the prices came from.
+const LEGACY_CHAINS = { yangguofu: "楊国福", qibao: "七宝", lixiaoqi: "李暁七", lahongbang: "ラホンバン", custom: "自定义店铺", generic: "一般的な目安", listed: "清单里的料金" };
+const RULE_SOURCES = { listed: "清单里这家店的料金", generic: "一般的な目安", custom: "用户自己填的料金" };
 
 const state = { session: null, feedback: [], requests: [], bowls: [], missing: [], usage: [], documents: [], shops: [], dataset: null,
                 // True once the database has the columns and functions of 20261122180000_admin_shops.sql.
@@ -131,7 +133,9 @@ async function load() {
         all("shop_feedback", "id,shop_id,topic,message,source_url,app_version,iso_week,review,rule", "iso_week.desc,id")
           .catch(() => all("shop_feedback", "id,shop_id,topic,message,source_url,app_version,iso_week,review", "iso_week.desc,id")),
         all("ingredient_requests", "upload_id,name,category,unit,grams_per_unit,app_version,iso_week,review", "iso_week.desc,upload_id"),
-        all("bowl_submissions", "upload_id,chain_id,estimated_grams_raw,actual_grams,actual_yen,iso_week,place_id,app_version", "iso_week.desc,upload_id"),
+        // rule_source since 2026-11-27 (migration 20261127100000); read without it before the migration.
+        all("bowl_submissions", "upload_id,chain_id,rule_source,estimated_grams_raw,actual_grams,actual_yen,iso_week,place_id,app_version", "iso_week.desc,upload_id")
+          .catch(() => all("bowl_submissions", "upload_id,chain_id,estimated_grams_raw,actual_grams,actual_yen,iso_week,place_id,app_version", "iso_week.desc,upload_id")),
         all("missing_ingredients", "upload_id,ingredient_id,chain_id,place_id,iso_week", "iso_week.desc,upload_id"),
         all("daily_usage_days", "day,first_of_week,first_of_month,install_week,app_version,consent,built,used_recommend,used_instore,records,records_with_weight,made_share_card,imported_code,used_map,opened_shop,favorited,marked_missing,added_custom", "day.desc"),
         api("catalog_documents?select=name,version,published_on&order=name"),
@@ -349,17 +353,18 @@ function renderBowls() {
   const weekRows = [...weeks.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(-16).map(([label, value]) => ({ label, value }));
   fill($("bowls-weeks"), weekRows.length ? bars(weekRows) : el("p", { class: "empty", text: "还没有碗数据。" }));
 
-  const chains = new Map();
+  // Where the prices came from (2026-11-27); older rows by the chain ID they were sent with.
+  const sources = new Map();
   for (const row of bowls) {
-    const key = row.chain_id || "custom";
-    if (!chains.has(key)) chains.set(key, []);
-    chains.get(key).push(row);
+    const key = row.rule_source ? RULE_SOURCES[row.rule_source] || row.rule_source : `旧版：${LEGACY_CHAINS[row.chain_id] || row.chain_id || "—"}`;
+    if (!sources.has(key)) sources.set(key, []);
+    sources.get(key).push(row);
   }
   fill($("bowls-chains"), table(
-    [{ label: "连锁" }, { label: "碗数", num: true }, { label: "中位数", num: true }, { label: "最小", num: true }, { label: "最大", num: true }],
-    [...chains.entries()].sort((a, b) => b[1].length - a[1].length).map(([chain, rows]) => {
+    [{ label: "料金的来源" }, { label: "碗数", num: true }, { label: "中位数", num: true }, { label: "最小", num: true }, { label: "最大", num: true }],
+    [...sources.entries()].sort((a, b) => b[1].length - a[1].length).map(([source, rows]) => {
       const r = ratios(rows);
-      return [CHAINS[chain] || chain, rows.length, r.length ? median(r).toFixed(2) : "—",
+      return [source, rows.length, r.length ? median(r).toFixed(2) : "—",
         r.length ? r[0].toFixed(2) : "—", r.length ? r[r.length - 1].toFixed(2) : "—"];
     })));
 
@@ -391,12 +396,14 @@ function renderBowls() {
 function renderMissing() {
   const rows = state.missing;
   const groups = new Map();
+  // By shop (2026-11-27: what a shop stocks is kept shop by shop); older rows without a shop by their chain.
   for (const row of rows) {
-    const key = `${row.chain_id}|${row.ingredient_id}`;
-    if (!groups.has(key)) groups.set(key, { chain: row.chain_id, ingredient: row.ingredient_id, count: 0, places: new Set(), weeks: [] });
+    const shop = row.place_id ? (row.place_id.startsWith("s_") ? shopName(row.place_id) : `Apple 地图 ${row.place_id}`)
+      : `旧版：${LEGACY_CHAINS[row.chain_id] || row.chain_id || "—"}`;
+    const key = `${shop}|${row.ingredient_id}`;
+    if (!groups.has(key)) groups.set(key, { shop, ingredient: row.ingredient_id, count: 0, weeks: [] });
     const group = groups.get(key);
     group.count += 1;
-    if (row.place_id) group.places.add(row.place_id);
     group.weeks.push(row.iso_week);
   }
   fill($("missing-summary"), [
@@ -406,9 +413,9 @@ function renderMissing() {
   ].map(([label, value]) => el("div", { class: "card" }, [el("b", { text: String(value) }), el("span", { text: label })])));
   if (rows.length === 0) return fill($("missing-list"), el("p", { class: "empty", text: "还没有上报。" }));
   fill($("missing-list"), table(
-    [{ label: "连锁" }, { label: "食材 ID" }, { label: "件数", num: true }, { label: "店数", num: true }, { label: "最近一周" }],
+    [{ label: "店", wrap: true }, { label: "食材 ID" }, { label: "件数", num: true }, { label: "最近一周" }],
     [...groups.values()].sort((a, b) => b.count - a.count || a.ingredient.localeCompare(b.ingredient)).map((g) =>
-      [CHAINS[g.chain] || g.chain, g.ingredient, g.count, g.places.size, g.weeks.sort().slice(-1)[0]])));
+      [g.shop, g.ingredient, g.count, g.weeks.sort().slice(-1)[0]])));
 }
 
 // ---- 店铺清单: see shops.js ----
@@ -475,6 +482,7 @@ $("sf-locate").addEventListener("click", locateShop);
 $("sf-save").addEventListener("click", saveShop);
 $("sf-cancel").addEventListener("click", closeShopForm);
 $("shop-form").addEventListener("input", updateShopForm);
+$("sf-rule-copy").addEventListener("change", copyRule);
 $("shop-form").addEventListener("change", updateShopForm);
 
 (function start() {
@@ -506,8 +514,8 @@ $("shop-form").addEventListener("change", updateShopForm);
 
 function demoData() {
   const shops = [
-    { id: "s_demo0001", name: "サンプル麻辣湯 東京店", chain_id: "yangguofu", uses_chain_rule: true, prefecture: "東京都", city: "千代田区", address: "丸の内1-1-1", apple_place_id: "I0000000000000001", status: "open", verified_on: "2026-11-21", published: true },
-    { id: "s_demo0002", name: "サンプル麻辣湯 横浜店", chain_id: "qibao", uses_chain_rule: false, prefecture: "神奈川県", city: "横浜市西区", address: "高島2-2-2", apple_place_id: null, status: "temporarily_closed", verified_on: "2026-11-21", published: false },
+    { id: "s_demo0001", number: 1, name: "サンプル麻辣湯 東京店", rule: { kind: "perGram", base_yen: 0, included_grams: 0, yen_per_gram: 4, tax_included: true, bonus_threshold_yen: 1000, bonus_grams: 80 }, rule_checked_on: "2025-10-01", prefecture: "東京都", city: "千代田区", address: "丸の内1-1-1", apple_place_id: "I0000000000000001", status: "open", verified_on: "2026-11-21", published: true },
+    { id: "s_demo0002", number: 2, name: "サンプル麻辣湯 横浜店", rule: { kind: "basePlusPerGram", base_yen: 620, included_grams: 0, yen_per_gram: 3.1, tax_included: true, non_weighed: ["harusame"] }, rule_checked_on: "2025-09-01", prefecture: "神奈川県", city: "横浜市西区", address: "高島2-2-2", apple_place_id: null, status: "temporarily_closed", verified_on: "2026-11-21", published: false },
   ];
   const feedback = [
     { id: "00000000-0000-4000-8000-000000000001", shop_id: "s_demo0001", topic: "price_rule", message: "100g あたり 420 円に変わっていました（2026年11月）", source_url: "https://example.com/news", app_version: "1.0.0", iso_week: "2026-W47", review: "new" },
@@ -523,12 +531,13 @@ function demoData() {
   const weeks = ["2026-W44", "2026-W45", "2026-W46", "2026-W47"];
   for (let i = 0; i < 46; i += 1) {
     const estimated = 250 + (i * 37) % 200;
-    const chain = ["yangguofu", "qibao", "lixiaoqi", null][i % 4];
-    bowls.push({ upload_id: `b${i}`, chain_id: chain, estimated_grams_raw: estimated, actual_grams: Math.round(estimated * (0.75 + ((i * 13) % 60) / 100)),
+    // A few old rows with a chain ID, the rest saying where the prices came from.
+    const source = ["listed", "generic", "custom", null][i % 4];
+    bowls.push({ upload_id: `b${i}`, chain_id: source ? null : "yangguofu", rule_source: source, estimated_grams_raw: estimated, actual_grams: Math.round(estimated * (0.75 + ((i * 13) % 60) / 100)),
       actual_yen: 900 + (i * 53) % 900, iso_week: weeks[Math.min(3, Math.floor(i / 9))], place_id: i % 3 === 0 ? "s_demo0001" : i % 5 === 0 ? "I0000000000000009" : null, app_version: "1.0.0" });
   }
   const missing = ["shungiku", "shungiku", "shungiku", "lotus", "hakusai"].map((ingredient_id, i) => ({ upload_id: `m${i}`, ingredient_id,
-    chain_id: i === 4 ? "qibao" : "yangguofu", place_id: i % 2 ? "s_demo0001" : i === 0 ? "I0000000000000009" : null, iso_week: i < 2 ? "2026-W47" : "2026-W46" }));
+    chain_id: i === 4 ? "qibao" : null, place_id: i === 4 ? null : i % 2 ? "s_demo0001" : "I0000000000000009", iso_week: i < 2 ? "2026-W47" : "2026-W46" }));
   const usage = [];
   for (let d = 0; d < 14; d += 1) {
     const day = new Date(Date.UTC(2026, 10, 8 + d)).toISOString().slice(0, 10);

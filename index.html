@@ -87,7 +87,7 @@
     <h2>匿名碗数据</h2>
     <div id="bowls-summary" class="cards"></div>
     <h3>每周的碗数</h3><div id="bowls-weeks" class="chart"></div>
-    <h3>实际重量 ÷ 估算重量（按连锁）</h3>
+    <h3>实际重量 ÷ 估算重量（按料金的来源）</h3>
     <p class="hint">1.00 表示估算刚好；大于 1 是估少了。碗数少的时候只作参考。</p>
     <div id="bowls-chains"></div>
     <h3>误差分布（实际 ÷ 估算）</h3><div id="bowls-histogram" class="chart"></div>
@@ -96,9 +96,9 @@
 
   <section id="missing" class="tab" hidden>
     <h2>店にない食材</h2>
-    <p class="hint">用户在店内模式点「ない」时的匿名上报（只有 ID 和周）。同一连锁里多家店、多人都报的食材，才考虑从那家连锁的おまかせ里去掉。</p>
+    <p class="hint">用户在店内模式点「ない」时的匿名上报（只有 ID 和周）。同一家店有好几个人都报的食材，才考虑从那家店的おまかせ里去掉（2026-11-27 起按店，不按连锁）。</p>
     <div id="missing-summary" class="cards"></div>
-    <h3>按连锁和食材</h3><div id="missing-list"></div>
+    <h3>按店和食材</h3><div id="missing-list"></div>
   </section>
 
   <section id="shops" class="tab" hidden>
@@ -111,8 +111,6 @@
       <p id="sf-origin" class="message" hidden></p>
       <div class="grid">
         <label>店名（正式名称）<input id="sf-name" maxlength="60"></label>
-        <label>连锁<select id="sf-chain"><option value="">单店（没有连锁）</option><option value="yangguofu">楊国福</option><option value="qibao">七宝</option><option value="lixiaoqi">李暁七</option><option value="lahongbang">ラホンバン</option></select></label>
-        <label class="check"><input id="sf-uses-chain" type="checkbox" checked> 和连锁的料金相同（不同的分店取消勾选）</label>
         <label>都道府县<select id="sf-pref"><option>東京都</option><option>神奈川県</option><option>埼玉県</option><option>千葉県</option></select></label>
         <label>市区町村（例：新宿区、川口市）<input id="sf-city" maxlength="30"></label>
         <label>之后的地址（例：百人町1-7-3 ○○ビル1F）<input id="sf-address" maxlength="120"></label>
@@ -125,7 +123,9 @@
         <label>情報のもと<select id="sf-origin-kind"><option value="first_hand">一手来源（官网・官方 SNS・商场官网等）</option><option value="listing">店家登载的页面（HotPepper・Uber Eats 等的店铺页）</option><option value="owner_search">自己上网搜索（不用填网址）</option><option value="user_report">用户投稿</option><option value="visit">自己去过</option></select></label>
         <label>出典（一手来源的网址；选「一手来源」时必填）<input id="sf-source" type="url" maxlength="300" placeholder="https://"></label>
       </div>
-      <label class="check"><input id="sf-rule-on" type="checkbox"> 登记这家店自己的料金（不勾：用连锁的料金；单店则显示「一般的な目安」）</label>
+      <label class="check"><input id="sf-rule-on" type="checkbox"> 登记这家店的料金（不勾：App 里显示「一般的な目安」。2026-11-27 起没有连锁的料金，每家店各存一份）</label>
+      <label>从别的店复制料金<select id="sf-rule-copy"></select></label>
+      <p id="sf-copied" class="hint"></p>
       <p id="sf-reported-prices" class="hint"></p>
       <div id="sf-rule" class="grid" hidden>
         <label>料金のしくみ<select id="sf-kind"><option value="perGram">重さだけ</option><option value="basePlusPerGram">基本料金＋重さ</option><option value="firstWeightPlusPerGram">最初の◯gまで定額＋以降は重さ</option></select></label>

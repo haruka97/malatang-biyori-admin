@@ -6,7 +6,9 @@
 const STATUS = { open: "营业", temporarily_closed: "休业", closed: "闭店" };
 const KINDS = { perGram: "重さだけ", basePlusPerGram: "基本料金＋重さ", firstWeightPlusPerGram: "最初の◯gまで定額＋以降は重さ" };
 const PRECISIONS = { building: "号（建筑）", block: "街区", town: "町（只到町，较粗）" };
-const SHOP_COLUMNS = "id,name,chain_id,uses_chain_rule,prefecture,city,address,latitude,longitude,location_precision,apple_place_id,status,verified_on,published";
+// 2026-11-27: no chain columns (chain rules are retired; the app no longer reads them) and the shop's permanent number
+// (レシピコード). Needs the migration 20261127100000_shop_numbers_and_rule_source.sql.
+const SHOP_COLUMNS = "id,number,name,prefecture,city,address,latitude,longitude,location_precision,apple_place_id,status,verified_on,published";
 const SHOP_ADMIN_COLUMNS = SHOP_COLUMNS + ",rule,rule_checked_on,source_url,added_by,feedback_id,origin";
 const ORIGINS = { first_hand: "一手来源", listing: "店家登载的页面", owner_search: "自己上网搜索", user_report: "用户投稿", visit: "自己去过" };
 // Kinds of source that must come with their link.
@@ -112,6 +114,56 @@ function formValues() {
   };
 }
 
+// The prices on the form: empty, a report's, or another shop's (2026-11-27: every shop's prices are its own, so a new
+// branch of a known brand starts from a sibling's).
+function fillRule(rule) {
+  $("sf-kind").value = rule ? rule.kind : "perGram";
+  $("sf-tax").value = !rule || rule.tax_included ? "included" : rule.tax_rate_percent === 8 ? "excluded8" : "excluded10";
+  for (const id of ["sf-base", "sf-included", "sf-per100", "sf-minimum", "sf-bonus-threshold"]) $(id).value = "";
+  $("sf-bonus-grams").value = "80";
+  if (rule) {
+    $("sf-per100").value = String(Math.round(rule.yen_per_gram * 10000) / 100);
+    $("sf-base").value = rule.kind === "perGram" ? "" : String(rule.base_yen);
+    $("sf-included").value = rule.kind === "firstWeightPlusPerGram" ? String(rule.included_grams) : "";
+    $("sf-minimum").value = rule.minimum_yen != null ? String(rule.minimum_yen) : "";
+    if (rule.bonus_grams != null) { $("sf-bonus-threshold").value = String(rule.bonus_threshold_yen); $("sf-bonus-grams").value = String(rule.bonus_grams); }
+  }
+}
+
+// 「从别的店复制料金」: each kind of prices the list has once, named after the brand most shops with it have.
+function fillRuleCopies() {
+  const groups = new Map();
+  for (const s of state.shops) {
+    if (!s.rule) continue;
+    const key = JSON.stringify(s.rule, Object.keys(s.rule).sort());
+    if (!groups.has(key)) groups.set(key, { rule: s.rule, brands: new Map(), count: 0 });
+    const group = groups.get(key);
+    const brand = s.name.replace(/ [^ ]*店$/, "");
+    group.brands.set(brand, (group.brands.get(brand) || 0) + 1);
+    group.count += 1;
+  }
+  const options = [...groups.values()].sort((a, b) => b.count - a.count).map((g) => {
+    const brand = [...g.brands.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    return el("option", { value: JSON.stringify(g.rule), text: `${brand} など ${g.count} 家：${ruleSummary(g.rule)}` });
+  });
+  fill($("sf-rule-copy"), [el("option", { value: "", text: "（不复制）" }), ...options]);
+}
+
+function copyRule() {
+  const value = field("sf-rule-copy");
+  const rule = value ? JSON.parse(value) : null;
+  fillRule(rule);
+  // The form has no field for 「計量対象外」: kept from the copied prices (七宝's 春雨).
+  shopForm.copiedNonWeighed = rule && rule.non_weighed ? rule.non_weighed : null;
+  $("sf-copied").textContent = shopForm.copiedNonWeighed ? `计量对象外（跟复制来的料金一样）：${shopForm.copiedNonWeighed.join("・")}` : "";
+  if (rule) $("sf-rule-on").checked = true;
+  updateShopForm();
+}
+
+function withCopiedNonWeighed(rule) {
+  return shopForm.copiedNonWeighed ? { ...rule, non_weighed: shopForm.copiedNonWeighed } : rule;
+}
+
 function openShopForm(feedback) {
   if (!state.canEditShops) return notice("要先执行数据库迁移（20261122180000_admin_shops.sql）才能追加店铺。");
   shopForm.feedback = feedback || null;
@@ -120,8 +172,9 @@ function openShopForm(feedback) {
   $("sf-origin").textContent = feedback ? `来自投稿：${feedback.message}` : "";
   $("sf-origin").hidden = !feedback;
   $("sf-name").value = report.name;
-  $("sf-chain").value = "";
-  $("sf-uses-chain").checked = true;
+  shopForm.copiedNonWeighed = null;
+  $("sf-copied").textContent = "";
+  fillRuleCopies();
   $("sf-pref").value = place.prefecture || "東京都";
   $("sf-city").value = "";
   $("sf-address").value = place.rest;
@@ -136,16 +189,7 @@ function openShopForm(feedback) {
   const rule = feedback && feedback.rule;
   // Prices a user reported are filled in below but not registered unless the owner ticks the box: nobody checked them.
   $("sf-rule-on").checked = false;
-  $("sf-kind").value = rule ? rule.kind : "perGram";
-  $("sf-tax").value = !rule || rule.tax_included ? "included" : rule.tax_rate_percent === 8 ? "excluded8" : "excluded10";
-  $("sf-bonus-grams").value = "80";
-  if (rule) {
-    $("sf-per100").value = String(Math.round(rule.yen_per_gram * 10000) / 100);
-    $("sf-base").value = rule.kind === "perGram" ? "" : String(rule.base_yen);
-    $("sf-included").value = rule.kind === "firstWeightPlusPerGram" ? String(rule.included_grams) : "";
-    $("sf-minimum").value = rule.minimum_yen != null ? String(rule.minimum_yen) : "";
-    if (rule.bonus_grams != null) { $("sf-bonus-threshold").value = String(rule.bonus_threshold_yen); $("sf-bonus-grams").value = String(rule.bonus_grams); }
-  }
+  fillRule(rule);
   $("sf-reported-prices").textContent = report.prices ? `投稿里写的料金：${report.prices}` : "";
   $("shop-form").hidden = false;
   updateShopForm();
@@ -251,10 +295,10 @@ async function saveShop() {
   const name = field("sf-name").trim(), prefecture = field("sf-pref"), city = field("sf-city").trim(), address = field("sf-address").trim();
   const read = $("sf-rule-on").checked ? readRule(formValues()) : { rule: null };
   const shop = {
-    id: await shopID(name, prefecture, city, address), name, chain_id: field("sf-chain"), uses_chain_rule: $("sf-uses-chain").checked,
+    id: await shopID(name, prefecture, city, address), name,
     prefecture, city, address, latitude: Number(field("sf-lat")), longitude: Number(field("sf-lon")),
     location_precision: field("sf-precision"), source_url: field("sf-source").trim(), origin: field("sf-origin-kind"),
-    rule: read.rule || null,
+    rule: read.rule ? withCopiedNonWeighed(read.rule) : null,
     feedback_id: shopForm.feedback ? shopForm.feedback.id : "",
   };
   if (state.shops.some((s) => s.id === shop.id)) return notice("清单里已经有这家店（店名和地址完全相同）。");
@@ -262,7 +306,8 @@ async function saveShop() {
   try {
     if (!DEMO) await rpc("admin_add_shop", { shop });
     const today = new Date().toISOString().slice(0, 10);
-    state.shops.push({ ...shop, chain_id: shop.chain_id || null, apple_place_id: null, status: "open", verified_on: today, published: false,
+    // The database gives the number; it shows after the next load.
+    state.shops.push({ ...shop, number: null, apple_place_id: null, status: "open", verified_on: today, published: false,
                        rule_checked_on: shop.rule ? today : null, added_by: "admin", feedback_id: shop.feedback_id || null });
     if (shopForm.feedback) shopForm.feedback.review = "checked";
     closeShopForm();
@@ -354,7 +399,7 @@ function renderShops() {
       el("span", { class: "tag", text: STATUS[s.status] || s.status }),
       // Where the facts come from, when it is not a first-hand source: these are the ones to check first.
       ...(s.origin && s.origin !== "first_hand" ? [el("span", { class: "tag", text: ORIGINS[s.origin] || s.origin })] : []),
-      el("span", { text: (CHAINS[s.chain_id] || s.chain_id || "单店") + (s.chain_id && !s.uses_chain_rule ? "（规则不同）" : "") }),
+      el("span", { text: s.number ? `No.${s.number}` : "编号待分配" }),
       el("span", { text: `确认 ${s.verified_on}` }),
       el("span", { text: s.id }),
     ]),
