@@ -22,7 +22,10 @@ const state = { session: null, feedback: [], requests: [], bowls: [], missing: [
                 // 账号与人气 (accounts.js): true once the database has the functions of 20261126100000.
                 canManageAccounts: false, accounts: [], alerts: [], shopStats: [],
                 // お知らせ (notices.js): true once the database has the table of 20261126110000.
-                canManageNotices: false, notices: [], noticeCounts: {} };
+                canManageNotices: false, notices: [], noticeCounts: {},
+                // 店的菜单 (menus.js): true once the database has shops.menu (20261127110000); the published ingredient
+                // library names the choices.
+                canEditMenus: false, library: null };
 
 // ---- Small DOM helpers (text only, never innerHTML) ----
 
@@ -126,7 +129,7 @@ async function all(table, select, order) {
 async function load() {
   notice("");
   try {
-    if (DEMO) Object.assign(state, demoData(), { canEditShops: true });
+    if (DEMO) Object.assign(state, demoData(), { canEditShops: true, canEditMenus: true, library: demoLibrary() });
     else {
       const [feedback, requests, bowls, missing, usage, documents, shops, dataset] = await Promise.all([
         // With the rule column when the database has it (before the migration it does not: read without).
@@ -139,11 +142,15 @@ async function load() {
         all("missing_ingredients", "upload_id,ingredient_id,chain_id,place_id,iso_week", "iso_week.desc,upload_id"),
         all("daily_usage_days", "day,first_of_week,first_of_month,install_week,app_version,consent,built,used_recommend,used_instore,records,records_with_weight,made_share_card,imported_code,used_map,opened_shop,favorited,marked_missing,added_custom", "day.desc"),
         api("catalog_documents?select=name,version,published_on&order=name"),
-        all("shops", SHOP_ADMIN_COLUMNS, "id").then((rows) => { state.canEditShops = true; return rows; })
+        // With the menu when the database has the column (migration 20261127110000), else as before.
+        all("shops", SHOP_ADMIN_COLUMNS + ",menu", "id").then((rows) => { state.canEditShops = true; state.canEditMenus = true; return rows; })
+          .catch(() => all("shops", SHOP_ADMIN_COLUMNS, "id").then((rows) => { state.canEditShops = true; return rows; }))
           .catch(() => { state.canEditShops = false; return all("shops", SHOP_COLUMNS, "id"); }),
         api("shop_dataset?select=version,checked_on&limit=1"),
       ]);
       Object.assign(state, { feedback, requests, bowls, missing, usage, documents, shops, dataset: dataset[0] || null });
+      // The library names the menus' choices in the list; without it the list shows their IDs.
+      if (state.canEditMenus) await loadLibrary().catch(() => null);
     }
     await loadAccounts();
     await loadNotices();
@@ -226,7 +233,8 @@ function renderUsage() {
 
   fill($("usage-catalog"), state.documents.length ? table(
     [{ label: "文档" }, { label: "版本", num: true }, { label: "发布日" }],
-    state.documents.map((d) => [d.name === "ingredients" ? "食材库" : "连锁料金规则", d.version, d.published_on]))
+    state.documents.map((d) => [{ ingredient_library: "总食材库", ingredients: "食材库（测试版用，不再更新）", shops: "连锁料金规则（测试版用，不再更新）" }[d.name] || d.name,
+                                d.version, d.published_on]))
     : el("p", { class: "empty", text: "还没有发布过。App 用的是内置的那一份（版本 1）。" }));
 }
 
@@ -515,7 +523,12 @@ $("shop-form").addEventListener("change", updateShopForm);
 function demoData() {
   const shops = [
     { id: "s_demo0001", number: 1, name: "サンプル麻辣湯 東京店", rule: { kind: "perGram", base_yen: 0, included_grams: 0, yen_per_gram: 4, tax_included: true, bonus_threshold_yen: 1000, bonus_grams: 80 }, rule_checked_on: "2025-10-01", prefecture: "東京都", city: "千代田区", address: "丸の内1-1-1", apple_place_id: "I0000000000000001", status: "open", verified_on: "2026-11-21", published: true },
-    { id: "s_demo0002", number: 2, name: "サンプル麻辣湯 横浜店", rule: { kind: "basePlusPerGram", base_yen: 620, included_grams: 0, yen_per_gram: 3.1, tax_included: true, non_weighed: ["harusame"] }, rule_checked_on: "2025-09-01", prefecture: "神奈川県", city: "横浜市西区", address: "高島2-2-2", apple_place_id: null, status: "temporarily_closed", verified_on: "2026-11-21", published: false },
+    { id: "s_demo0002", number: 2, name: "サンプル麻辣湯 横浜店", rule: { kind: "basePlusPerGram", base_yen: 620, included_grams: 0, yen_per_gram: 3.1, tax_included: true, non_weighed: ["harusame"] }, rule_checked_on: "2025-09-01", prefecture: "神奈川県", city: "横浜市西区", address: "高島2-2-2", apple_place_id: null, status: "temporarily_closed", verified_on: "2026-11-21", published: false,
+      menu: { mode: "public", rule: { kind: "perGram", base_yen: 0, included_grams: 0, yen_per_gram: 3.1, tax_included: true }, hidden: ["harusame", "kuanfen"],
+              options: [{ choice_id: "qibao_soup", yen: 620, default: true }, { choice_id: "qibao_soup_more_harusame", yen: 770 }, { choice_id: "qibao_spice_1", yen: 0, default: true },
+                        { choice_id: "qibao_spice_4", yen: 88 }, { choice_id: "qibao_tomyum", yen: 150 }, { choice_id: "qibao_kaedama", yen: 150 }],
+              source: "official", as_of: "2026-11-27" } },
+    { id: "s_demo0003", number: 3, name: "サンプル麻辣湯 川崎店", rule: { kind: "perGram", base_yen: 0, included_grams: 0, yen_per_gram: 3.1, tax_included: true }, rule_checked_on: "2026-11-27", prefecture: "神奈川県", city: "川崎市川崎区", address: "駅前本町1-1", apple_place_id: null, status: "open", verified_on: "2026-11-27", published: true },
   ];
   const feedback = [
     { id: "00000000-0000-4000-8000-000000000001", shop_id: "s_demo0001", topic: "price_rule", message: "100g あたり 420 円に変わっていました（2026年11月）", source_url: "https://example.com/news", app_version: "1.0.0", iso_week: "2026-W47", review: "new" },

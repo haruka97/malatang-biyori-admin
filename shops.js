@@ -405,8 +405,10 @@ function renderShops() {
     ]),
     el("p", { class: "message", text: `${s.prefecture}${s.city}${s.address}` + (s.apple_place_id ? "" : "　（无 Apple Place ID）") }),
     ...(s.rule ? [el("p", { class: "hint", text: `这家店的料金：${ruleSummary(s.rule)}（${s.rule_checked_on}）` })] : []),
+    // 2026-11-27 (M23): the shop's menu, edited in menus.js.
+    ...(typeof menuLine === "function" ? menuLine(s) : []),
     ...(safeLink(s.source_url) ? [safeLink(s.source_url)] : []),
-    el("div", { class: "actions" }, shopActions(s)),
+    el("div", { class: "actions" }, [...shopActions(s), ...(typeof menuActions === "function" ? menuActions(s) : [])]),
   ])));
 }
 

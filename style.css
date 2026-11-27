@@ -59,6 +59,12 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); f
 /* The points 「位置を調べる」 found: one per line, with a link to the map. */
 .candidates { grid-column: 1 / -1; display: grid; gap: 4px; font-size: 13px; }
 .candidates a { white-space: nowrap; }
+/* The menu editor (menus.js). */
+.menu-option, .menu-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 4px 0; }
+.menu-option input[data-yen] { width: 90px; }
+.menu-item input { width: 170px; }
+.menu-hidden { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0; }
+#menu-form h4 { margin: 14px 0 4px; }
 
 /* お知らせ: the picture as the app shows it, never wider than the card. */
 .notice-picture { display: block; max-width: min(100%, 360px); border-radius: 10px; margin: 6px 0; }
