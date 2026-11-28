@@ -90,3 +90,5 @@ label.check { display: flex; align-items: center; gap: 8px; color: var(--ink); f
 .tr0 { grid-row: 1; } .tr1 { grid-row: 2; } .tr2 { grid-row: 3; } .tr3 { grid-row: 4; } .tr4 { grid-row: 5; } .tr5 { grid-row: 6; } .tr6 { grid-row: 7; } .tr7 { grid-row: 8; } .tr8 { grid-row: 9; } .tr9 { grid-row: 10; } .tr10 { grid-row: 11; } 
 .ts1 { background: rgba(232, 71, 43, 0.14); border-color: transparent; } .ts2 { background: rgba(232, 71, 43, 0.3); border-color: transparent; } .ts3 { background: rgba(232, 71, 43, 0.48); border-color: transparent; } .ts4 { background: rgba(232, 71, 43, 0.68); border-color: transparent; color: #fff; } .ts5 { background: rgba(232, 71, 43, 0.9); border-color: transparent; color: #fff; } 
 .ts0 { color: var(--muted); }
+.item.change { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; }
+.item.change .hint { margin: 0; }

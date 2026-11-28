@@ -9,7 +9,7 @@ const PAGE = 1000;
 
 const TOPICS = {
   closed: "閉店", moved: "移転", hours: "营业时间・休业", price_rule: "料金ルール", location: "地点・住所",
-  new_shop: "新店投稿", owner: "店家联系", other: "其他",
+  new_shop: "新店投稿", owner: "店家联系", other: "其他", app: "对 App 的意见",
 };
 const REVIEWS = { new: "未处理", checked: "已核实", rejected: "不采用" };
 // Old rows only (test builds before 2026-11-27 sent a chain ID); new ones say where the prices came from.
@@ -155,6 +155,7 @@ async function load() {
     await loadAccounts();
     await loadNotices();
     await loadRegions();
+    await loadActivity();
     if (!DEMO && state.shops.length === 0 && state.dataset == null) {
       notice("没有读到任何数据。这个账号可能还没有被加进管理员名单（见 docs/ADMIN.md）。");
     }
@@ -175,6 +176,7 @@ function render() {
   renderAccounts();
   renderNotices();
   renderRegions();
+  renderActivity();
 }
 
 // ---- 使用情况 ----

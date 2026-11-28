@@ -21,6 +21,7 @@
     <button data-tab="accounts">账号与人气</button>
     <button data-tab="regions">地区分布</button>
     <button data-tab="notices">お知らせ</button>
+    <button data-tab="activity">安全与操作记录</button>
   </nav>
   <div id="session" hidden><span id="who"></span> <button id="reload">刷新</button> <button id="signout">退出</button></div>
 </header>
@@ -168,6 +169,15 @@
     <div id="regions-table"></div>
   </section>
 
+  <section id="activity" class="tab" hidden>
+    <h2>安全与操作记录</h2>
+    <p class="hint">App 每小时新送来的行数和上限（超过上限时 App 会稍后重送，不会丢）。某张表突然很多、接近上限，可能是有人在刷。</p>
+    <div id="activity-counts"></div>
+    <h3>最近的操作（最多 100 条）</h3>
+    <p class="hint">改料金・改菜单・改营业状态・复制菜单可以「撤回」：恢复成那次修改之前的内容。之后又改过的店不能撤回。2026-11-28 以前的操作没有记下改之前的值，不能撤回。</p>
+    <div id="activity-changes"></div>
+  </section>
+
   <section id="notices" class="tab" hidden>
     <div class="bar"><h2>お知らせ</h2>
       <span><button id="notices-add" class="primary" hidden>新しいお知らせ</button></span></div>
@@ -210,6 +220,7 @@
 <script src="accounts.js"></script>
 <script src="notices.js"></script>
 <script src="regions.js"></script>
+<script src="activity.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
